@@ -1,15 +1,11 @@
 import { selectPTS } from '$lib/server/db/queries/selectPTS';
 import type { Architect, Project } from '$lib/types';
-
-export const load = async ({ cookies }) => {
+export const load = async () => {
 	const ptsData = await selectPTS();
-
-	const architectData: Architect[] = [];
-	const projectData: Project[] = [];
-
+	let architectData: Architect[] = [];
+	let projectData: Project[] = [];
 	ptsData.forEach((item) => {
 		const architectId = item['architectId'];
-
 		if (!architectData[architectId]) {
 			architectData[architectId] = {
 				architectId: architectId,
@@ -18,11 +14,9 @@ export const load = async ({ cookies }) => {
 				tasks: []
 			};
 		}
-
 		const taskIndex = architectData[architectId]['tasks'].findIndex(
 			(task) => task['taskId'] === item['taskId']
 		);
-
 		if (taskIndex === -1) {
 			architectData[architectId]['tasks'].push({
 				taskId: item['taskId'],
@@ -36,11 +30,9 @@ export const load = async ({ cookies }) => {
 				subtasks: [] // Initialize as an empty array
 			});
 		}
-
 		const task = architectData[architectId]['tasks'].find(
 			(task) => task['taskId'] === item['taskId']
 		);
-
 		// Only push subtasks if the Subtask Name is not null or empty
 		if (item['subtaskId']) {
 			task['subtasks'].push({
@@ -51,10 +43,8 @@ export const load = async ({ cookies }) => {
 			});
 		}
 	});
-
 	ptsData.forEach((item) => {
 		const projectId = item['projectId'];
-
 		if (!projectData[projectId]) {
 			projectData[projectId] = {
 				projectId: projectId,
@@ -67,11 +57,9 @@ export const load = async ({ cookies }) => {
 				tasks: []
 			};
 		}
-
 		const taskIndex = projectData[projectId]['tasks'].findIndex(
 			(task) => task['taskId'] === item['taskId']
 		);
-
 		if (taskIndex === -1) {
 			projectData[projectId]['tasks'].push({
 				taskId: item['taskId'],
@@ -85,9 +73,9 @@ export const load = async ({ cookies }) => {
 				subtasks: [] // Initialize as an empty array
 			});
 		}
-
-		const task = projectData[projectId]['tasks'].find((task) => task['taskId'] === item['taskId']);
-
+		const task = projectData[projectId]['tasks'].find(
+			(task) => task['taskId'] === item['taskId']
+		);
 		// Only push subtasks if the Subtask Name is not null or empty
 		if (item['subtaskId']) {
 			task['subtasks'].push({
@@ -100,7 +88,6 @@ export const load = async ({ cookies }) => {
 	});
 	// Sort tasks by priority and due date
 	const priorityOrder = { High: 1, Medium: 2, Low: 3 };
-
 	Object.values(architectData).forEach((architect) => {
 		architect.tasks.sort((a, b) => {
 			const priorityDiff = priorityOrder[a.taskPriority] - priorityOrder[b.taskPriority];
@@ -108,7 +95,6 @@ export const load = async ({ cookies }) => {
 			return new Date(a.dueDate) - new Date(b.dueDate); // Then sort by due date
 		});
 	});
-
 	Object.values(projectData).forEach((project) => {
 		project.tasks.sort((a, b) => {
 			const priorityDiff = priorityOrder[a.taskPriority] - priorityOrder[b.taskPriority];
@@ -116,15 +102,8 @@ export const load = async ({ cookies }) => {
 			return new Date(a.dueDate) - new Date(b.dueDate); // Then sort by due date
 		});
 	});
-
 	const architectDataValues = Object.values(architectData);
 	const projectDataValues = Object.values(projectData);
-	const sessionId = crypto.randomUUID();
-	await storeSessionData(sessionId, { architectDataValues, projectDataValues });
-
-	cookies.set('sessionId', sessionId, { path: '/', maxAge: 60 * 60 });
-
-	return { architectDataValues, projectDataValues, sessionId };
 	// console.log(architectDataValues);
 	return { architectDataValues, projectDataValues };
 };
