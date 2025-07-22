@@ -1,18 +1,9 @@
-import { pgTable, uuid, text, bigint, foreignKey, date, unique, pgEnum } from "drizzle-orm/pg-core"
+import { pgTable, foreignKey, text, date, uuid, bigint, unique, pgEnum } from "drizzle-orm/pg-core"
 import { sql } from "drizzle-orm"
 
 export const priority = pgEnum("Priority", ['High', 'Medium', 'Low'])
 export const status = pgEnum("Status", ['Planning', 'In Progress', 'Completed', 'On Hold', 'Cancelled'])
 
-
-export const architects = pgTable("architects", {
-	architectId: uuid("architect_id").defaultRandom().primaryKey().notNull(),
-	firstName: text("first_name").notNull(),
-	lastName: text("last_name"),
-	email: text(),
-	// You can use { mode: "bigint" } if numbers are exceeding js number limitations
-	phoneNumber: bigint("phone_number", { mode: "number" }),
-});
 
 export const tasks = pgTable("tasks", {
 	name: text().notNull(),
@@ -21,7 +12,7 @@ export const tasks = pgTable("tasks", {
 	dueDate: date("due_date"),
 	status: status(),
 	priority: priority(),
-	architectId: uuid("architect_id").notNull(),
+	architectId: uuid("architect_id"),
 	projectId: uuid("project_id"),
 	taskId: uuid("task_id").defaultRandom().primaryKey().notNull(),
 }, (table) => [
@@ -36,6 +27,15 @@ export const tasks = pgTable("tasks", {
 			name: "tasks_project_id_fkey"
 		}).onUpdate("cascade").onDelete("cascade"),
 ]);
+
+export const architects = pgTable("architects", {
+	architectId: uuid("architect_id").defaultRandom().primaryKey().notNull(),
+	firstName: text("first_name").notNull(),
+	lastName: text("last_name"),
+	email: text(),
+	// You can use { mode: "bigint" } if numbers are exceeding js number limitations
+	phoneNumber: bigint("phone_number", { mode: "number" }),
+});
 
 export const projects = pgTable("projects", {
 	projectId: uuid("project_id").defaultRandom().primaryKey().notNull(),

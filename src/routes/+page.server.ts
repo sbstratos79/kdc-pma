@@ -1,109 +1,121 @@
 import { selectPTS } from '$lib/server/db/queries/selectPTS';
 import type { Architect, Project } from '$lib/types';
+
 export const load = async () => {
 	const ptsData = await selectPTS();
-	let architectData: Architect[] = [];
-	let projectData: Project[] = [];
+	const architectData: Architect[] = [];
+	const projectData: Project[] = [];
+
+	// ── Build per‑architect ───────────────────────────────────────────────
 	ptsData.forEach((item) => {
-		const architectId = item['architectId'];
+		const architectId = item.architectId;
+
+		// 1) Always ensure there's an entry for this architect:
 		if (!architectData[architectId]) {
 			architectData[architectId] = {
-				architectId: architectId,
-				firstName: item['firstName'],
-				lastName: item['lastName'],
+				architectId,
+				firstName: item.firstName,
+				lastName: item.lastName,
 				tasks: []
 			};
 		}
-		const taskIndex = architectData[architectId]['tasks'].findIndex(
-			(task) => task['taskId'] === item['taskId']
-		);
-		if (taskIndex === -1) {
-			architectData[architectId]['tasks'].push({
-				taskId: item['taskId'],
-				taskName: item['taskName'],
-				taskDescription: item['taskDescription'],
-				taskStartDate: item['taskStartDate'],
-				taskDueDate: item['taskDueDate'],
-				taskStatus: item['taskStatus'],
-				taskPriority: item['taskPriority'],
-				projectName: item['projectName'],
-				subtasks: [] // Initialize as an empty array
-			});
-		}
-		const task = architectData[architectId]['tasks'].find(
-			(task) => task['taskId'] === item['taskId']
-		);
-		// Only push subtasks if the Subtask Name is not null or empty
-		if (item['subtaskId']) {
-			task['subtasks'].push({
-				subtaskId: item['subtaskId'],
-				subtaskName: item['subtaskName'],
-				subtaskDescription: item['subtaskDescription'],
-				subtaskStatus: item['subtaskStatus']
-			});
+
+		// 2) Only if there's a real taskId do we push a task
+		if (item.taskId) {
+			const aTasks = architectData[architectId].tasks;
+			if (!aTasks.find((t) => t.taskId === item.taskId)) {
+				aTasks.push({
+					taskId: item.taskId,
+					taskName: item.taskName,
+					taskDescription: item.taskDescription,
+					taskStartDate: item.taskStartDate,
+					taskDueDate: item.taskDueDate,
+					taskStatus: item.taskStatus,
+					taskPriority: item.taskPriority,
+					projectName: item.projectName,
+					subtasks: []
+				});
+			}
+
+			// now attach any subtask
+			const task = aTasks.find((t) => t.taskId === item.taskId)!;
+			if (item.subtaskId) {
+				task.subtasks.push({
+					subtaskId: item.subtaskId,
+					subtaskName: item.subtaskName,
+					subtaskDescription: item.subtaskDescription,
+					subtaskStatus: item.subtaskStatus
+				});
+			}
 		}
 	});
+
+	// ── Build per‑project ───────────────────────────────────────────────
 	ptsData.forEach((item) => {
-		const projectId = item['projectId'];
+		const projectId = item.projectId;
+
+		// 1) Always ensure there's an entry for this project:
 		if (!projectData[projectId]) {
 			projectData[projectId] = {
-				projectId: projectId,
-				projectName: item['projectName'],
-				projectDescription: item['projectDescription'],
-				projectStartDate: item['projectStartDate'],
-				projectDueDate: item['projectDueDate'],
-				projectStatus: item['projectStatus'],
-				projectPriority: item['projectPriority'],
+				projectId,
+				projectName: item.projectName,
+				projectDescription: item.projectDescription,
+				projectStartDate: item.projectStartDate,
+				projectDueDate: item.projectDueDate,
+				projectStatus: item.projectStatus,
+				projectPriority: item.projectPriority,
 				tasks: []
 			};
 		}
-		const taskIndex = projectData[projectId]['tasks'].findIndex(
-			(task) => task['taskId'] === item['taskId']
-		);
-		if (taskIndex === -1) {
-			projectData[projectId]['tasks'].push({
-				taskId: item['taskId'],
-				taskName: item['taskName'],
-				taskDescription: item['taskDescription'],
-				taskStartDate: item['taskStartDate'],
-				taskDueDate: item['taskDueDate'],
-				taskStatus: item['taskStatus'],
-				taskPriority: item['taskPriority'],
-				projectName: item['projectName'],
-				subtasks: [] // Initialize as an empty array
-			});
-		}
-		const task = projectData[projectId]['tasks'].find(
-			(task) => task['taskId'] === item['taskId']
-		);
-		// Only push subtasks if the Subtask Name is not null or empty
-		if (item['subtaskId']) {
-			task['subtasks'].push({
-				subtaskId: item['subtaskId'],
-				subtaskName: item['subtaskName'],
-				subtaskDescription: item['subtaskDescription'],
-				subtaskStatus: item['subtaskStatus']
-			});
+
+		// 2) Only if there's a real taskId do we push a task
+		if (item.taskId) {
+			const pTasks = projectData[projectId].tasks;
+			if (!pTasks.find((t) => t.taskId === item.taskId)) {
+				pTasks.push({
+					architectFirstName: item.firstName,
+					taskId: item.taskId,
+					taskName: item.taskName,
+					taskDescription: item.taskDescription,
+					taskStartDate: item.taskStartDate,
+					taskDueDate: item.taskDueDate,
+					taskStatus: item.taskStatus,
+					taskPriority: item.taskPriority,
+					projectName: item.projectName,
+					subtasks: []
+				});
+			}
+
+			// now attach any subtask
+			const task = pTasks.find((t) => t.taskId === item.taskId)!;
+			if (item.subtaskId) {
+				task.subtasks.push({
+					subtaskId: item.subtaskId,
+					subtaskName: item.subtaskName,
+					subtaskDescription: item.subtaskDescription,
+					subtaskStatus: item.subtaskStatus
+				});
+			}
 		}
 	});
-	// Sort tasks by priority and due date
+
+	// ── Sort & return (unchanged) ────────────────────────────────────────
 	const priorityOrder = { High: 1, Medium: 2, Low: 3 };
-	Object.values(architectData).forEach((architect) => {
-		architect.tasks.sort((a, b) => {
-			const priorityDiff = priorityOrder[a.taskPriority] - priorityOrder[b.taskPriority];
-			if (priorityDiff !== 0) return priorityDiff; // Sort by priority first
-			return new Date(a.dueDate) - new Date(b.dueDate); // Then sort by due date
-		});
-	});
-	Object.values(projectData).forEach((project) => {
-		project.tasks.sort((a, b) => {
-			const priorityDiff = priorityOrder[a.taskPriority] - priorityOrder[b.taskPriority];
-			if (priorityDiff !== 0) return priorityDiff; // Sort by priority first
-			return new Date(a.dueDate) - new Date(b.dueDate); // Then sort by due date
-		});
-	});
-	const architectDataValues = Object.values(architectData);
-	const projectDataValues = Object.values(projectData);
-	// console.log(architectDataValues);
-	return { architectDataValues, projectDataValues };
+	Object.values(architectData).forEach((arch) =>
+		arch.tasks.sort((a, b) => {
+			const p = priorityOrder[a.taskPriority] - priorityOrder[b.taskPriority];
+			return p || new Date(a.taskDueDate).getTime() - new Date(b.taskDueDate).getTime();
+		})
+	);
+	Object.values(projectData).forEach((proj) =>
+		proj.tasks.sort((a, b) => {
+			const p = priorityOrder[a.taskPriority] - priorityOrder[b.taskPriority];
+			return p || new Date(a.taskDueDate).getTime() - new Date(b.taskDueDate).getTime();
+		})
+	);
+
+	return {
+		architectDataValues: Object.values(architectData),
+		projectDataValues: Object.values(projectData)
+	};
 };

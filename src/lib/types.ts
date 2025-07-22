@@ -6,6 +6,7 @@ export interface Subtask {
 }
 
 export interface Task {
+	architectFirstName: string | null;
 	taskId: string;
 	taskName: string;
 	taskDescription: string | null;
