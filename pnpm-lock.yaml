@@ -14,9 +14,6 @@ importers:
       '@splidejs/svelte-splide':
         specifier: ^0.2.9
         version: 0.2.9
-      dotenv:
-        specifier: ^17.2.0
-        version: 17.2.0
       embla-carousel:
         specifier: ^8.6.0
         version: 8.6.0
@@ -29,6 +26,9 @@ importers:
       postgres:
         specifier: ^3.4.5
         version: 3.4.7
+      wx-svelte-grid:
+        specifier: ^2.2.0
+        version: 2.2.0
     devDependencies:
       '@eslint/compat':
         specifier: ^1.2.5
@@ -57,6 +57,9 @@ importers:
       '@types/node':
         specifier: ^22
         version: 22.16.4
+      dotenv:
+        specifier: ^17.2.0
+        version: 17.2.0
       drizzle-kit:
         specifier: ^0.30.2
         version: 0.30.6
@@ -2077,6 +2080,42 @@ packages:
     resolution: {integrity: sha512-BN22B5eaMMI9UMtjrGd5g5eCYPpCPDUy0FJXbYsaT5zYxjFOckS53SQDE3pWkVoWpHXVb3BrYcEN4Twa55B5cA==}
     engines: {node: '>=0.10.0'}
 
+  wx-core-locales@2.2.0:
+    resolution: {integrity: sha512-bDquS5k6v784vOsjDnkpbrqL4Yh3CQGf3Rt3gM6mAFDUI97/Iy2r7fzQ3It7Hb3dxI9Vtym4Bwsg3X3ATAz8KA==}
+
+  wx-grid-data-provider@2.2.0:
+    resolution: {integrity: sha512-Qan2+yKS34uhtj5/TL8lNOA4hr6Xl1hCFbVXEspdbpy4ZcqnTOOrCddg8+XXksB8vn1+6ucwfbLTv80oIefhCw==}
+
+  wx-grid-locales@2.2.0:
+    resolution: {integrity: sha512-YVU9vR1uwPd4IiJ12GfQIDfIa9aqq1vR3cI43BI9A8a26nmoTluGXvIuOFoP3ZSg/yzW+JAe1QtTb7ejW5C6pg==}
+
+  wx-grid-store@2.2.0:
+    resolution: {integrity: sha512-H0AKzODSyEE4emA76MSpcMzPNIJlsgf3CUzaXPMuqQuaehqCNINSzmI7/5z7nHvbBJBsK8scSIi6cctj5Pyavg==}
+
+  wx-lib-data-provider@1.5.1:
+    resolution: {integrity: sha512-ebKYlnmXOuwgQ/812Ux06Uz7tIG3P8euUHB0/hwhL0+Buged+00uFII3bkXQ7jh5DbsTugFqPlzlKTJFQ2l0TA==}
+
+  wx-lib-dom@0.8.0:
+    resolution: {integrity: sha512-1jQFsoX8EiA/7D6IT8k8I52PlPFs850etY+k7jqww9CM5L3JEELprKuy422sUfXjnnpMoaVvUrmndWZVOldsAA==}
+
+  wx-lib-dom@0.9.1:
+    resolution: {integrity: sha512-uh0ikmNRSgF1ksCY4mu/Nuqo/zrTOKP75Ok+YeA+Jp6i5QCzD5EabWtgAGIBq54cikAbjSGOdNPa6qYLc9s0qA==}
+
+  wx-lib-state@1.9.3:
+    resolution: {integrity: sha512-iZVeprL3ljzTWToaN+QW9LJjWZoDyplLbkt8iryeDQaNirYFaL2ZUCp0Utjm0rSP6OfLSmaw+QYldYhmqDpyGw==}
+
+  wx-lib-svelte@0.5.1:
+    resolution: {integrity: sha512-zYfkAv5r0zQ3KFyCPPusC8EkMXUC3I0L1QsK+An0rNlRkY/iocPTOcaouyycg48BdmsBK8fSL0vK0B4oZuujrQ==}
+
+  wx-svelte-core@2.2.0:
+    resolution: {integrity: sha512-txE3Me/gfb899V3QJbH+Rt+e7rgvruzLCIKvZoDXT/c78TUWqMRHFZUpIkjlH9toozVvdL0UnyQ8BqVMRQqBVg==}
+
+  wx-svelte-grid@2.2.0:
+    resolution: {integrity: sha512-9OKwyANflqpBujsqm1geU5pgm72QnY7bMkReUAt6Q+2laL5Ccx/ZHxpo2ez14IkZh0jXoW4JCVjoaDiA32FYXg==}
+
+  wx-svelte-menu@2.2.0:
+    resolution: {integrity: sha512-uEuza5t+wc4YKqTUh6DS/ZdZBHmNcJrBLu18NuRZJMWGb+zHjBKeQNG7/eIA/zMP1yhn5Lnb6hoK6TEddaC/Wg==}
+
   yallist@5.0.0:
     resolution: {integrity: sha512-YgvUTfwqyc7UXVMrB+SImsVYSmTS8X/tSrtdNZMImM+n7+QTriRXyXim0mBrTXNeqzVF0KWGgHPeiyViFFrNDw==}
     engines: {node: '>=18'}
@@ -3684,6 +3723,50 @@ snapshots:
       isexe: 3.1.1
 
   word-wrap@1.2.5: {}
+
+  wx-core-locales@2.2.0: {}
+
+  wx-grid-data-provider@2.2.0:
+    dependencies:
+      wx-lib-data-provider: 1.5.1
+
+  wx-grid-locales@2.2.0: {}
+
+  wx-grid-store@2.2.0:
+    dependencies:
+      wx-lib-state: 1.9.3
+
+  wx-lib-data-provider@1.5.1: {}
+
+  wx-lib-dom@0.8.0: {}
+
+  wx-lib-dom@0.9.1: {}
+
+  wx-lib-state@1.9.3: {}
+
+  wx-lib-svelte@0.5.1: {}
+
+  wx-svelte-core@2.2.0:
+    dependencies:
+      wx-core-locales: 2.2.0
+      wx-lib-dom: 0.8.0
+      wx-lib-svelte: 0.5.1
+
+  wx-svelte-grid@2.2.0:
+    dependencies:
+      wx-grid-data-provider: 2.2.0
+      wx-grid-locales: 2.2.0
+      wx-grid-store: 2.2.0
+      wx-lib-dom: 0.9.1
+      wx-lib-state: 1.9.3
+      wx-lib-svelte: 0.5.1
+      wx-svelte-core: 2.2.0
+      wx-svelte-menu: 2.2.0
+
+  wx-svelte-menu@2.2.0:
+    dependencies:
+      wx-lib-dom: 0.9.1
+      wx-svelte-core: 2.2.0
 
   yallist@5.0.0: {}
 

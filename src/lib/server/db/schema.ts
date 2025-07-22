@@ -21,7 +21,7 @@ export const tasks = pgTable("tasks", {
 	dueDate: date("due_date"),
 	status: status(),
 	priority: priority(),
-	architectId: uuid("architect_id"),
+	architectId: uuid("architect_id").notNull(),
 	projectId: uuid("project_id"),
 	taskId: uuid("task_id").defaultRandom().primaryKey().notNull(),
 }, (table) => [

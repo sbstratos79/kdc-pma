@@ -94,7 +94,7 @@
           "name": "architect_id",
           "type": "uuid",
           "primaryKey": false,
-          "notNull": false
+          "notNull": true
         },
         "project_id": {
           "name": "project_id",

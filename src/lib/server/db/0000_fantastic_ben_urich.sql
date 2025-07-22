@@ -18,7 +18,7 @@ CREATE TABLE "tasks" (
 	"due_date" date,
 	"status" "Status",
 	"priority" "Priority",
-	"architect_id" uuid,
+	"architect_id" uuid NOT NULL,
 	"project_id" uuid,
 	"task_id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL
 );

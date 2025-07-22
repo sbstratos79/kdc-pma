@@ -9,7 +9,12 @@ const config = {
 	kit: {
 		adapter: adapter(),
 		alias: {
-			db: 'src/lib/server/db'
+			$db: 'src/lib/db'
+		}
+	},
+	compilerOptions: {
+		experimental: {
+			async: true
 		}
 	}
 };

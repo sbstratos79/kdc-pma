@@ -1,0 +1,130 @@
+import { selectPTS } from '$lib/server/db/queries/selectPTS';
+import type { Architect, Project } from '$lib/types';
+
+export const load = async ({ cookies }) => {
+	const ptsData = await selectPTS();
+
+	const architectData: Architect[] = [];
+	const projectData: Project[] = [];
+
+	ptsData.forEach((item) => {
+		const architectId = item['architectId'];
+
+		if (!architectData[architectId]) {
+			architectData[architectId] = {
+				architectId: architectId,
+				firstName: item['firstName'],
+				lastName: item['lastName'],
+				tasks: []
+			};
+		}
+
+		const taskIndex = architectData[architectId]['tasks'].findIndex(
+			(task) => task['taskId'] === item['taskId']
+		);
+
+		if (taskIndex === -1) {
+			architectData[architectId]['tasks'].push({
+				taskId: item['taskId'],
+				taskName: item['taskName'],
+				taskDescription: item['taskDescription'],
+				taskStartDate: item['taskStartDate'],
+				taskDueDate: item['taskDueDate'],
+				taskStatus: item['taskStatus'],
+				taskPriority: item['taskPriority'],
+				projectName: item['projectName'],
+				subtasks: [] // Initialize as an empty array
+			});
+		}
+
+		const task = architectData[architectId]['tasks'].find(
+			(task) => task['taskId'] === item['taskId']
+		);
+
+		// Only push subtasks if the Subtask Name is not null or empty
+		if (item['subtaskId']) {
+			task['subtasks'].push({
+				subtaskId: item['subtaskId'],
+				subtaskName: item['subtaskName'],
+				subtaskDescription: item['subtaskDescription'],
+				subtaskStatus: item['subtaskStatus']
+			});
+		}
+	});
+
+	ptsData.forEach((item) => {
+		const projectId = item['projectId'];
+
+		if (!projectData[projectId]) {
+			projectData[projectId] = {
+				projectId: projectId,
+				projectName: item['projectName'],
+				projectDescription: item['projectDescription'],
+				projectStartDate: item['projectStartDate'],
+				projectDueDate: item['projectDueDate'],
+				projectStatus: item['projectStatus'],
+				projectPriority: item['projectPriority'],
+				tasks: []
+			};
+		}
+
+		const taskIndex = projectData[projectId]['tasks'].findIndex(
+			(task) => task['taskId'] === item['taskId']
+		);
+
+		if (taskIndex === -1) {
+			projectData[projectId]['tasks'].push({
+				taskId: item['taskId'],
+				taskName: item['taskName'],
+				taskDescription: item['taskDescription'],
+				taskStartDate: item['taskStartDate'],
+				taskDueDate: item['taskDueDate'],
+				taskStatus: item['taskStatus'],
+				taskPriority: item['taskPriority'],
+				projectName: item['projectName'],
+				subtasks: [] // Initialize as an empty array
+			});
+		}
+
+		const task = projectData[projectId]['tasks'].find((task) => task['taskId'] === item['taskId']);
+
+		// Only push subtasks if the Subtask Name is not null or empty
+		if (item['subtaskId']) {
+			task['subtasks'].push({
+				subtaskId: item['subtaskId'],
+				subtaskName: item['subtaskName'],
+				subtaskDescription: item['subtaskDescription'],
+				subtaskStatus: item['subtaskStatus']
+			});
+		}
+	});
+	// Sort tasks by priority and due date
+	const priorityOrder = { High: 1, Medium: 2, Low: 3 };
+
+	Object.values(architectData).forEach((architect) => {
+		architect.tasks.sort((a, b) => {
+			const priorityDiff = priorityOrder[a.taskPriority] - priorityOrder[b.taskPriority];
+			if (priorityDiff !== 0) return priorityDiff; // Sort by priority first
+			return new Date(a.dueDate) - new Date(b.dueDate); // Then sort by due date
+		});
+	});
+
+	Object.values(projectData).forEach((project) => {
+		project.tasks.sort((a, b) => {
+			const priorityDiff = priorityOrder[a.taskPriority] - priorityOrder[b.taskPriority];
+			if (priorityDiff !== 0) return priorityDiff; // Sort by priority first
+			return new Date(a.dueDate) - new Date(b.dueDate); // Then sort by due date
+		});
+	});
+
+	const architectDataValues = Object.values(architectData);
+	const projectDataValues = Object.values(projectData);
+	const sessionId = crypto.randomUUID();
+	await storeSessionData(sessionId, { architectDataValues, projectDataValues });
+
+	cookies.set('sessionId', sessionId, { path: '/', maxAge: 60 * 60 });
+
+	return { architectDataValues, projectDataValues, sessionId };
+	// console.log(architectDataValues);
+	return { architectDataValues, projectDataValues };
+};
