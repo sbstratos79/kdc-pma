@@ -35,3 +35,16 @@ export interface Project {
 	projectPriority: string | null;
 	tasks: Task[];
 }
+
+// Response type for the API endpoint
+export interface PTSApiResponse {
+	architectDataValues: Architect[];
+	projectDataValues: Project[];
+	status: string[];
+	priority: string[];
+}
+
+// If you need to handle API errors
+export interface PTSApiError {
+	error: string;
+}

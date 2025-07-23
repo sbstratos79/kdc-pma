@@ -1,10 +1,26 @@
 <script>
+	import { onMount, onDestroy } from 'svelte';
 	import { AccordionItem, Accordion } from 'flowbite-svelte';
 	import ArchitectGrid from '$lib/components/ArchitectGrid.svelte';
 	import ProjectGrid from '$lib/components/ProjectGrid.svelte';
+	import { ptsDataStore, architectData, projectData } from '$lib/stores/ptsDataStore';
 
-	let { data } = $props();
-	let { architectDataValues, projectDataValues } = data;
+	onMount(async () => {
+		try {
+			const response = await fetch('/api/pts');
+			const initialData = await response.json();
+			ptsDataStore.init(initialData);
+
+			// Start polling after initial load
+			ptsDataStore.startPolling(30000);
+		} catch (error) {
+			console.error('Failed to load initial data:', error);
+		}
+	});
+
+	onDestroy(() => {
+		ptsDataStore.stopPolling();
+	});
 </script>
 
 <div class="flex h-screen w-screen items-start justify-center">
@@ -18,7 +34,7 @@
 				activeClass="max-w-full p-2 bg-gradient-to-b from-slate-100 to-amber-200"
 			>
 				{#snippet header()}<h1 class="text-2xl font-bold">Architects</h1>{/snippet}
-				<ArchitectGrid {architectDataValues} />
+				<ArchitectGrid architectDataValues={$architectData} />
 			</AccordionItem></Accordion
 		>
 		<Accordion class="w-full xl:w-[45%]">
@@ -28,7 +44,7 @@
 				activeClass="max-w-full p-2 bg-gradient-to-b from-slate-100 to-blue-200"
 			>
 				{#snippet header()}<h1 class="text-2xl font-bold">Projects</h1>{/snippet}
-				<ProjectGrid {projectDataValues} />
+				<ProjectGrid projectDataValues={$projectData} />
 			</AccordionItem></Accordion
 		>
 	</div>
