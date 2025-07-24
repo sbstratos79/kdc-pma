@@ -39,6 +39,7 @@ export interface Project {
 // Response type for the API endpoint
 export interface PTSApiResponse {
 	architectDataValues: Architect[];
+	taskDataValues: Task[];
 	projectDataValues: Project[];
 	status: string[];
 	priority: string[];

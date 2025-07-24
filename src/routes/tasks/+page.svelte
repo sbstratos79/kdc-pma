@@ -1,82 +1,133 @@
 <script>
-	import { Willow, Grid } from 'wx-svelte-grid';
+	import { onMount, onDestroy } from 'svelte';
+	import { getEditorConfig, Willow, Grid } from 'wx-svelte-grid';
+	import { DatePicker, RichSelect } from 'wx-svelte-core';
+	import { Editor, registerEditorItem } from 'wx-svelte-editor';
 
-	let { data } = $props();
+	import {
+		ptsDataStore,
+		projectData,
+		statusOptions,
+		priorityOptions
+	} from '$lib/stores/ptsDataStore';
 
-	let { projectDataValues, status, priority } = data;
-
-	let projectData = projectDataValues.map((projectData) => {
-		return {
-			projectId: projectData.projectId,
-			projectName: projectData.projectName,
-			projectStatus: projectData.projectStatus,
-			projectStartDate: projectData.projectStartDate,
-			projectDueDate: projectData.projectDueDate,
-			projectPriority: projectData.projectPriority,
-			projectDescription: projectData.projectDescription
-		};
+	onMount(async () => {
+		ptsDataStore.ensureInitialized();
 	});
-	console.log(priority);
+
+	onDestroy(() => {
+		ptsDataStore.stopPolling();
+	});
+
+	let projectDataValues = $derived(
+		$projectData.map((project) => ({
+			projectId: project.projectId,
+			projectName: project.projectName,
+			projectStatus: project.projectStatus,
+			projectStartDate: project.projectStartDate,
+			projectDueDate: project.projectDueDate,
+			projectPriority: project.projectPriority,
+			projectDescription: project.projectDescription
+		}))
+	);
+
+	console.log($statusOptions);
+	// You can also create other derived values
+	let statusOptionsArray = $derived($statusOptions);
+	let priorityOptionsArray = $derived($priorityOptions);
+
+	let dataToEdit = $state(null);
+	const init = () => {
+		return (dataToEdit = projectDataValues.filter((project) => project.projectId === dataToEdit));
+	};
 
 	const columns = [
 		{
 			id: 'projectId',
-			width: 50
+			width: 350
 		},
 		{
 			id: 'projectName',
 			width: 200,
 			header: 'Name',
-			footer: 'Name',
 			editor: 'text'
 		},
 		{
 			id: 'projectStatus',
 			width: 150,
 			header: 'Status',
-			footer: 'Status',
 			sort: true,
-			editor: {
-				type: 'combo',
-				config: { template: (option) => option },
-				options: status
-			}
+			editor: 'richselect',
+			options: statusOptionsArray
 		},
 		{
 			id: 'projectStartDate',
 			width: 150,
 			header: 'Start Date',
-			footer: 'Start Date',
-			sort: true
+			sort: true,
+			editor: 'datepicker',
+			template: (v) => (v ? v.toLocaleDateString() : '')
 		},
 		{
 			id: 'projectDueDate',
 			width: 150,
 			header: 'Due Date',
-			footer: 'Due Date',
-			sort: true
+			sort: true,
+			editor: 'datepicker',
+			template: (v) => (v ? v.toLocaleDateString() : '')
 		},
 		{
 			id: 'projectPriority',
 			width: 250,
 			header: 'Priority',
-			footer: 'Priority',
 			sort: true,
-			editor: {
-				type: 'combo',
-				config: { template: (option) => option },
-				options: priority
-			}
+			editor: 'richselect',
+			options: priorityOptionsArray
 		},
 		{
 			id: 'projectDescription',
-			width: 450,
+			width: 750,
 			header: 'Description',
-			footer: 'Description'
+			editor: 'textarea'
 		}
 	];
+	const items = getEditorConfig(columns);
+	registerEditorItem('richselect', RichSelect);
+	registerEditorItem('datepicker', DatePicker);
 </script>
 
-<Willow>
-	<Grid data={projectData} {columns} />
-</Willow>
+<div class="flex items-center justify-center">
+	<Willow>
+		<Grid data={projectDataValues} {columns} {init} />
+	</Willow>
+</div>
+
+{#if dataToEdit}
+	<Editor
+		values={dataToEdit}
+		{items}
+		topBar={{
+			items: [
+				{
+					comp: 'icon',
+					icon: 'wxi-close',
+					id: 'close'
+				},
+				{ comp: 'spacer' },
+				{
+					comp: 'button',
+					type: 'danger',
+					text: 'Delete',
+					id: 'delete'
+				},
+				{
+					comp: 'button',
+					type: 'primary',
+					text: 'Save',
+					id: 'save'
+				}
+			]
+		}}
+		placement="sidebar"
+	/>
+{/if}

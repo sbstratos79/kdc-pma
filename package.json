@@ -54,6 +54,8 @@
 		"embla-carousel-autoplay": "^8.6.0",
 		"keen-slider": "^6.8.6",
 		"postgres": "^3.4.5",
+		"wx-svelte-core": "^2.2.0",
+		"wx-svelte-editor": "^2.2.0",
 		"wx-svelte-grid": "^2.2.0"
 	},
 	"pnpm": {
