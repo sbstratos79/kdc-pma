@@ -7,16 +7,19 @@
 	import { getPriorityColor, getStatusColor } from '$lib/utils/colorUtils';
 	import { formatDate } from '$lib/utils/dateUtils';
 	import { projectData } from '$lib/stores/ptsDataStore';
+	import type { EmblaCarouselType } from 'embla-carousel';
 
 	let loading = $state(true);
-	let error = $state(null);
+	let error: string | null = $state(null);
 	const carouselInstances = new SvelteMap();
 
 	onMount(async () => {
 		try {
-			return await $projectData;
+			return $projectData;
 		} catch (err) {
-			error = err.message;
+			if (err instanceof Error) {
+				error = err.message;
+			}
 		} finally {
 			loading = false;
 		}
@@ -51,7 +54,7 @@
 	}
 
 	function navigateCarousel(taskId: string, direction: 'prev' | 'next') {
-		const embla = carouselInstances.get(taskId);
+		const embla: EmblaCarouselType = carouselInstances.get(taskId);
 		if (embla) {
 			if (direction === 'prev') {
 				embla.scrollPrev();

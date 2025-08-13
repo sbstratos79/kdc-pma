@@ -3,14 +3,17 @@
 	import { SvelteDate } from 'svelte/reactivity';
 	import { taskData } from '$lib/stores/ptsDataStore';
 	import { getPriorityColor, getStatusColor } from '$lib/utils/colorUtils';
+
 	let loading = $state(true);
-	let error = $state(null);
+	let error: string | null = $state(null);
 
 	onMount(async () => {
 		try {
 			return $taskData;
 		} catch (err) {
-			error = err.message;
+			if (err instanceof Error) {
+				error = err.message;
+			}
 		} finally {
 			loading = false;
 		}

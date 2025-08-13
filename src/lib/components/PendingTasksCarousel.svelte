@@ -7,14 +7,16 @@
 	import { taskData } from '$lib/stores/ptsDataStore';
 
 	let loading = $state(true);
-	let error = $state(null);
+	let error: string | null = $state(null);
 	const carouselInstances = new SvelteMap();
 
 	onMount(async () => {
 		try {
 			return $taskData;
 		} catch (err) {
-			error = err.message;
+			if (err instanceof Error) {
+				error = err.message;
+			}
 		} finally {
 			loading = false;
 		}
