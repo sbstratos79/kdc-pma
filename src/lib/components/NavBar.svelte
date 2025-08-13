@@ -9,10 +9,15 @@
 	</NavBrand>
 	<NavHamburger />
 	<NavUl>
-		<NavLi href="/">Dashboard</NavLi>
-		<NavLi href="/projects">Projects</NavLi>
-		<NavLi href="/tasks">Tasks</NavLi>
-		<NavLi href="/subtasks">Subtasks</NavLi>
-		<NavLi href="/architects">Architects</NavLi>
+		<span class="nowrap flex flex-row gap-2 text-lg">
+			<NavLi href="/">Pending Tasks</NavLi>
+			<NavLi href="/architect-project-tasks">Architect Project Tasks</NavLi>
+			<NavLi href="/architect-projects">Architect Projects</NavLi>
+			<NavLi href="/studio">Studio</NavLi>
+			<NavLi href="/studio-projects">Studio Projects</NavLi>
+			<NavLi href="/projects">Projects</NavLi>
+			<NavLi href="/tasks">Tasks</NavLi>
+			<NavLi href="/subtasks">Subtasks</NavLi>
+		</span>
 	</NavUl>
 </Navbar>

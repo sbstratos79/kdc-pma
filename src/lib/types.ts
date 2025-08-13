@@ -1,3 +1,5 @@
+// src/lib/types.ts
+
 export interface Subtask {
 	subtaskId: string;
 	subtaskName: string;
@@ -18,13 +20,6 @@ export interface Task {
 	subtasks: Subtask[];
 }
 
-export interface Architect {
-	architectId: string;
-	firstName: string;
-	lastName: string | null;
-	tasks: Task[];
-}
-
 export interface Project {
 	projectId: string;
 	projectName: string;
@@ -36,9 +31,24 @@ export interface Project {
 	tasks: Task[];
 }
 
+export interface Architect {
+	architectId: string;
+	firstName: string;
+	lastName: string | null;
+	tasks: Task[];
+}
+
+export interface ArchitectProject {
+	architectId: string;
+	firstName: string;
+	lastName: string | null;
+	projects: Project[];
+}
+
 // Response type for the API endpoint
 export interface PTSApiResponse {
 	architectDataValues: Architect[];
+	architectProjectDataValues: ArchitectProject[];
 	taskDataValues: Task[];
 	projectDataValues: Project[];
 	status: string[];

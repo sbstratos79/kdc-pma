@@ -2,7 +2,7 @@
 	import { onMount } from 'svelte';
 	import { Progressbar, AccordionItem, Accordion } from 'flowbite-svelte';
 	import { SvelteMap } from 'svelte/reactivity';
-	import EmblaCarousel, { type EmblaCarouselType } from 'embla-carousel';
+	import EmblaCarousel from 'embla-carousel';
 	import Autoplay from 'embla-carousel-autoplay';
 	import { getPriorityColor, getStatusColor } from '$lib/utils/colorUtils';
 	import { formatDate } from '$lib/utils/dateUtils';
@@ -14,7 +14,7 @@
 
 	onMount(async () => {
 		try {
-			return $projectData;
+			return await $projectData;
 		} catch (err) {
 			error = err.message;
 		} finally {
@@ -51,7 +51,7 @@
 	}
 
 	function navigateCarousel(taskId: string, direction: 'prev' | 'next') {
-		const embla: EmblaCarouselType = carouselInstances.get(taskId);
+		const embla = carouselInstances.get(taskId);
 		if (embla) {
 			if (direction === 'prev') {
 				embla.scrollPrev();
@@ -179,6 +179,48 @@
 															</p>
 														{/if}
 													</div>
+													<!-- Subtasks -->
+													{#if task.subtasks.length > 0}
+														<div class="flex flex-1 flex-col overflow-hidden border-t pt-4">
+															<h4
+																class="mb-3 flex-shrink-0 text-lg font-medium text-gray-900 lg:text-xl"
+															>
+																Subtasks ({task.subtasks.length})
+															</h4>
+															<div
+																class="space-y-2 overflow-y-auto pr-2"
+																style="height: calc(100% - 1rem);"
+															>
+																{#each task.subtasks as subtask (subtask.subtaskId)}
+																	<div class="flex-shrink-0 rounded-lg bg-gray-50 p-3">
+																		<div class="flex items-center justify-between">
+																			<div class="min-w-0 flex-1">
+																				<p
+																					class="text-md truncate font-medium text-gray-900 lg:text-lg"
+																				>
+																					{subtask.subtaskName}
+																				</p>
+																				{#if subtask.subtaskDescription}
+																					<p class="lg:text-md mt-1 truncate text-sm text-gray-600">
+																						{subtask.subtaskDescription}
+																					</p>
+																				{/if}
+																			</div>
+																			{#if subtask.subtaskStatus}
+																				<span
+																					class="lg:text-md ml-2 inline-flex items-center rounded-full border px-2 py-1 text-xs font-medium {getStatusColor(
+																						subtask.subtaskStatus
+																					)}"
+																				>
+																					{subtask.subtaskStatus}
+																				</span>
+																			{/if}
+																		</div>
+																	</div>
+																{/each}
+															</div>
+														</div>
+													{/if}
 												</div>
 											</div>
 										{/each}

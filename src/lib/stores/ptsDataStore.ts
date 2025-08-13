@@ -41,7 +41,6 @@ function createPTSDataStore() {
 				try {
 					const response = await fetch('/api/pts');
 
-					console.log(response);
 					if (!response.ok) {
 						throw new Error(`HTTP error! status: ${response.status}`);
 					}
@@ -70,6 +69,11 @@ import { derived } from 'svelte/store';
 
 // Derived stores for easier access
 export const architectData = derived(ptsDataStore, ($store) => $store?.architectDataValues ?? []);
+
+export const architectProjectData = derived(
+	ptsDataStore,
+	($store) => $store?.architectProjectDataValues ?? []
+);
 
 export const taskData = derived(ptsDataStore, ($store) => $store?.taskDataValues ?? []);
 
