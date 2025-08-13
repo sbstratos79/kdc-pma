@@ -54,13 +54,8 @@
 		};
 	}
 
-	/**
-	 * Navigate carousel
-	 * @param {string} architectId
-	 * @param {'prev' | 'next'} direction
-	 */
 	function navigateCarousel(architectId: string, direction: 'prev' | 'next') {
-		const embla: EmblaCarouselType = carouselInstances.get(architectId);
+		const embla: EmblaCarouselType = carouselInstances.get(architectId) as EmblaCarouselType;
 		if (embla) {
 			if (direction === 'prev') {
 				embla.scrollPrev();

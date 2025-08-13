@@ -21,7 +21,6 @@
 			loading = false;
 		}
 	});
-	// ===================================================================================================
 
 	function initCarousel(node: HTMLElement, taskId: string) {
 		const embla = EmblaCarousel(
@@ -57,7 +56,7 @@
 	 * @param {'prev' | 'next'} direction
 	 */
 	function navigateCarousel(taskId: string, direction: 'prev' | 'next') {
-		const embla: EmblaCarouselType = carouselInstances.get(taskId);
+		const embla: EmblaCarouselType = carouselInstances.get(taskId) as EmblaCarouselType;
 		if (embla) {
 			if (direction === 'prev') {
 				embla.scrollPrev();

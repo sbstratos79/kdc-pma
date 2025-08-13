@@ -53,7 +53,7 @@
 	}
 
 	function navigateCarousel(taskId: string, direction: 'prev' | 'next') {
-		const embla: EmblaCarouselType = carouselInstances.get(taskId);
+		const embla: EmblaCarouselType = carouselInstances.get(taskId) as EmblaCarouselType;
 		if (embla) {
 			if (direction === 'prev') {
 				embla.scrollPrev();

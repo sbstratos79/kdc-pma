@@ -2,7 +2,7 @@
 	import { onMount } from 'svelte';
 	import { AccordionItem, Accordion } from 'flowbite-svelte';
 	import { SvelteMap } from 'svelte/reactivity';
-	import EmblaCarousel from 'embla-carousel';
+	import EmblaCarousel, { type EmblaCarouselType } from 'embla-carousel';
 	import Autoplay from 'embla-carousel-autoplay';
 	import { architectProjectData } from '$lib/stores/ptsDataStore';
 	import { getPriorityColor, getStatusColor } from '$lib/utils/colorUtils';
@@ -15,7 +15,7 @@
 
 	onMount(async () => {
 		try {
-			return await $architectProjectData;
+			return $architectProjectData;
 		} catch (err) {
 			if (err instanceof Error) {
 				error = err.message;
@@ -54,7 +54,7 @@
 	}
 
 	function navigateCarousel(architectId: string, direction: 'prev' | 'next') {
-		const embla = carouselInstances.get(architectId);
+		const embla: EmblaCarouselType = carouselInstances.get(architectId) as EmblaCarouselType;
 		if (embla) {
 			if (direction === 'prev') {
 				embla.scrollPrev();

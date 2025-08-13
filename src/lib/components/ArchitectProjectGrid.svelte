@@ -62,7 +62,7 @@
 	}
 
 	function navigateCarousel(architectId: string, direction: 'prev' | 'next') {
-		const embla: EmblaCarouselType = carouselInstances.get(architectId);
+		const embla: EmblaCarouselType = carouselInstances.get(architectId) as EmblaCarouselType;
 		if (embla) {
 			if (direction === 'prev') embla.scrollPrev();
 			else embla.scrollNext();
@@ -70,7 +70,7 @@
 	}
 
 	function goToProject(architectId: string, projectIndex: number) {
-		const embla: EmblaCarouselType = carouselInstances.get(architectId);
+		const embla: EmblaCarouselType = carouselInstances.get(architectId) as EmblaCarouselType;
 		if (embla) embla.scrollTo(projectIndex);
 	}
 
