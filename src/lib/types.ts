@@ -5,10 +5,13 @@ export interface Subtask {
 	subtaskName: string;
 	subtaskDescription: string | null;
 	subtaskStatus: string;
+	taskId: string;
+	taskName: string;
 }
 
 export interface Task {
-	architectFirstName: string | null;
+	architectId: string;
+	architectName: string;
 	taskId: string;
 	taskName: string;
 	taskDescription: string | null;
@@ -16,32 +19,31 @@ export interface Task {
 	taskDueDate: string | null;
 	taskStatus: string;
 	taskPriority: string;
-	projectName: string | null;
+	projectId: string;
+	projectName: string;
 	subtasks: Subtask[];
 }
 
 export interface Project {
 	projectId: string;
 	projectName: string;
-	projectDescription: string;
+	projectDescription: string | null;
 	projectStartDate: string | null;
 	projectDueDate: string | null;
-	projectStatus: string | null;
-	projectPriority: string | null;
+	projectStatus: string;
+	projectPriority: string;
 	tasks: Task[];
 }
 
 export interface Architect {
 	architectId: string;
-	firstName: string;
-	lastName: string | null;
+	architectName: string;
 	tasks: Task[];
 }
 
 export interface ArchitectProject {
 	architectId: string;
-	firstName: string;
-	lastName: string | null;
+	architectName: string;
 	projects: Project[];
 }
 

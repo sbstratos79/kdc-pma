@@ -8,8 +8,7 @@ export async function selectPTS() {
 	return await db
 		.select({
 			architectId: architects.architectId,
-			firstName: architects.firstName,
-			lastName: architects.lastName,
+			architectName: architects.name,
 			taskId: tasks.taskId,
 			taskName: tasks.name,
 			taskDescription: tasks.description,

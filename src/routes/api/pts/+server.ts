@@ -1,6 +1,6 @@
 import { json } from '@sveltejs/kit';
 import { selectPTS } from '$lib/server/db/queries/selectPTS';
-import type { Architect, ArchitectProject, Project, Task } from '$lib/types';
+import type { Architect, ArchitectProject, Project, Subtask, Task } from '$lib/types';
 import { status, priority } from '$lib/server/db/schema';
 import type { RequestHandler } from '@sveltejs/kit';
 import {
@@ -25,8 +25,7 @@ export const GET: RequestHandler = async ({ url }) => {
 			if (!architectData[architectId]) {
 				architectData[architectId] = {
 					architectId,
-					firstName: item.firstName,
-					lastName: item.lastName,
+					architectName: item.architectName,
 					tasks: []
 				};
 			}
@@ -47,7 +46,7 @@ export const GET: RequestHandler = async ({ url }) => {
 					});
 				}
 				// now attach any subtask
-				const task = aTasks.find((t) => t.taskId === item.taskId)!;
+				const task = aTasks.find((t: Task) => t.taskId === item.taskId)!;
 				if (item.subtaskId) {
 					task.subtasks.push({
 						subtaskId: item.subtaskId,
@@ -67,15 +66,14 @@ export const GET: RequestHandler = async ({ url }) => {
 			if (!architectProjectData[architectId]) {
 				architectProjectData[architectId] = {
 					architectId,
-					firstName: item.firstName,
-					lastName: item.lastName,
+					architectName: item.architectName,
 					projects: []
 				};
 			}
 			// 2) Only if there's a real projectId do we push a project
 			if (item.projectId) {
 				const aProjects = architectProjectData[architectId].projects;
-				if (!aProjects.find((t) => t.projectId === item.projectId)) {
+				if (!aProjects.find((p: Project) => p.projectId === item.projectId)) {
 					aProjects.push({
 						projectId: item.projectId,
 						projectName: item.projectName,
@@ -92,23 +90,27 @@ export const GET: RequestHandler = async ({ url }) => {
 			if (item.taskId) {
 				// Find the project first
 				const project = architectProjectData[architectId].projects.find(
-					(p) => p.projectId === projectId
+					(p: Project) => p.projectId === projectId
 				);
 				if (project) {
 					const pTasks = project.tasks;
-					if (!pTasks.find((t) => t.taskId === item.taskId)) {
+					if (!pTasks.find((t: Task) => t.taskId === item.taskId)) {
 						pTasks.push({
 							taskId: item.taskId,
 							taskName: item.taskName,
-							// ... other task properties
+							taskDescription: item.taskDescription,
+							taskStartDate: item.taskStartDate,
+							taskDueDate: item.taskDueDate,
+							taskPriority: item.taskPriority,
+							projectName: item.projectName,
 							subtasks: []
 						});
 					}
 
 					// Add subtask if it exists and isn't already added
 					if (item.subtaskId) {
-						const task = pTasks.find((t) => t.taskId === item.taskId)!;
-						if (!task.subtasks.find((s) => s.subtaskId === item.subtaskId)) {
+						const task = pTasks.find((t: Task) => t.taskId === item.taskId)!;
+						if (!task.subtasks.find((s: Subtask) => s.subtaskId === item.subtaskId)) {
 							task.subtasks.push({
 								subtaskId: item.subtaskId,
 								subtaskName: item.subtaskName,
@@ -126,7 +128,8 @@ export const GET: RequestHandler = async ({ url }) => {
 			// 1) Always ensure there's an entry for this project:
 			if (!taskData[taskId]) {
 				taskData[taskId] = {
-					architectFirstName: item.firstName,
+					architectId: item.architectId,
+					architectName: item.architectName,
 					taskId,
 					taskName: item.taskName,
 					taskDescription: item.taskDescription,
@@ -134,6 +137,7 @@ export const GET: RequestHandler = async ({ url }) => {
 					taskDueDate: item.taskDueDate,
 					taskStatus: item.taskStatus,
 					taskPriority: item.taskPriority,
+					projectId: item.projectId,
 					projectName: item.projectName,
 					subtasks: []
 				};
@@ -141,7 +145,7 @@ export const GET: RequestHandler = async ({ url }) => {
 			// now attach any subtask if it exists
 			if (item.subtaskId) {
 				const sTasks = taskData[taskId].subtasks;
-				if (!sTasks.find((s) => s.subtaskId === item.subtaskId)) {
+				if (!sTasks.find((s: Subtask) => s.subtaskId === item.subtaskId)) {
 					sTasks.push({
 						subtaskId: item.subtaskId,
 						subtaskName: item.subtaskName,
@@ -171,9 +175,10 @@ export const GET: RequestHandler = async ({ url }) => {
 			// 2) Only if there's a real taskId do we push a task
 			if (item.taskId) {
 				const pTasks = projectData[projectId].tasks;
-				if (!pTasks.find((t) => t.taskId === item.taskId)) {
+				if (!pTasks.find((t: Task) => t.taskId === item.taskId)) {
 					pTasks.push({
-						architectFirstName: item.firstName,
+						architectId: item.architectId,
+						architectName: item.architectName,
 						taskId: item.taskId,
 						taskName: item.taskName,
 						taskDescription: item.taskDescription,
@@ -186,7 +191,7 @@ export const GET: RequestHandler = async ({ url }) => {
 					});
 				}
 				// now attach any subtask
-				const task = pTasks.find((t) => t.taskId === item.taskId)!;
+				const task = pTasks.find((t: Task) => t.taskId === item.taskId)!;
 				if (item.subtaskId) {
 					task.subtasks.push({
 						subtaskId: item.subtaskId,
@@ -305,22 +310,21 @@ export const POST: RequestHandler = async ({ request }) => {
 };
 
 // Helper functions for each entity type
-async function createArchitect(data: any) {
-	const { firstName, lastName } = data;
+async function createArchitect(data: Architect) {
+	const { architectName } = data;
 
-	if (!firstName || !lastName) {
-		throw new Error('Architect requires firstName and lastName');
+	if (!architectName) {
+		throw new Error('Architect requires a Name');
 	}
 
 	const architectData = {
-		firstName: firstName.trim(),
-		lastName: lastName.trim()
+		name: architectName.trim()
 	};
 
 	return await insertArchitect(architectData);
 }
 
-async function createProject(data: any) {
+async function createProject(data: Project) {
 	const {
 		projectName,
 		projectDescription,
@@ -365,7 +369,7 @@ async function createProject(data: any) {
 	return await insertProject(projectData);
 }
 
-async function createTask(data: any) {
+async function createTask(data: Task) {
 	const {
 		taskName,
 		taskDescription,
@@ -377,8 +381,8 @@ async function createTask(data: any) {
 		architectId
 	} = data;
 
-	if (!taskName || !projectId || !architectId) {
-		throw new Error('Task requires taskName, projectId, and architectId');
+	if (!taskName || !architectId || !projectId || !taskStatus || !taskPriority) {
+		throw new Error('Task requires taskName, architectId, projectId, taskStatus and taskPriority');
 	}
 
 	// Validate dates
@@ -414,7 +418,7 @@ async function createTask(data: any) {
 	return await insertTask(taskData);
 }
 
-async function createSubtask(data: any) {
+async function createSubtask(data: Subtask) {
 	const { subtaskName, subtaskDescription, subtaskStatus = 'Planning', taskId } = data;
 
 	if (!subtaskName || !taskId) {

@@ -1,4 +1,4 @@
-import { pgTable, foreignKey, text, date, uuid, bigint, unique, pgEnum } from "drizzle-orm/pg-core"
+import { pgTable, foreignKey, text, date, uuid, unique, bigint, pgEnum } from "drizzle-orm/pg-core"
 import { sql } from "drizzle-orm"
 
 export const priority = pgEnum("Priority", ['High', 'Medium', 'Low'])
@@ -10,10 +10,10 @@ export const tasks = pgTable("tasks", {
 	description: text(),
 	startDate: date("start_date"),
 	dueDate: date("due_date"),
-	status: status(),
-	priority: priority(),
-	architectId: uuid("architect_id"),
-	projectId: uuid("project_id"),
+	status: status().notNull(),
+	priority: priority().notNull(),
+	architectId: uuid("architect_id").notNull(),
+	projectId: uuid("project_id").notNull(),
 	taskId: uuid("task_id").defaultRandom().primaryKey().notNull(),
 }, (table) => [
 	foreignKey({
@@ -28,23 +28,14 @@ export const tasks = pgTable("tasks", {
 		}).onUpdate("cascade").onDelete("cascade"),
 ]);
 
-export const architects = pgTable("architects", {
-	architectId: uuid("architect_id").defaultRandom().primaryKey().notNull(),
-	firstName: text("first_name").notNull(),
-	lastName: text("last_name"),
-	email: text(),
-	// You can use { mode: "bigint" } if numbers are exceeding js number limitations
-	phoneNumber: bigint("phone_number", { mode: "number" }),
-});
-
 export const projects = pgTable("projects", {
 	projectId: uuid("project_id").defaultRandom().primaryKey().notNull(),
 	name: text().notNull(),
 	description: text(),
 	startDate: date("start_date"),
 	dueDate: date("due_date"),
-	status: status(),
-	priority: priority(),
+	status: status().notNull(),
+	priority: priority().notNull(),
 }, (table) => [
 	unique("Projects_Name_key").on(table.name),
 ]);
@@ -53,8 +44,8 @@ export const subtasks = pgTable("subtasks", {
 	subtaskId: uuid("subtask_id").defaultRandom().primaryKey().notNull(),
 	name: text().notNull(),
 	description: text(),
-	status: status(),
-	taskId: uuid("task_id"),
+	status: status().notNull(),
+	taskId: uuid("task_id").notNull(),
 }, (table) => [
 	foreignKey({
 			columns: [table.taskId],
@@ -62,3 +53,11 @@ export const subtasks = pgTable("subtasks", {
 			name: "subtasks_task_id_fkey"
 		}).onUpdate("cascade").onDelete("cascade"),
 ]);
+
+export const architects = pgTable("architects", {
+	architectId: uuid("architect_id").defaultRandom().primaryKey().notNull(),
+	name: text().notNull(),
+	email: text(),
+	// You can use { mode: "bigint" } if numbers are exceeding js number limitations
+	phoneNumber: bigint("phone_number", { mode: "number" }),
+});

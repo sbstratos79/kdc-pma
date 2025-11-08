@@ -1,4 +1,4 @@
-// lib/stores/dataStore.ts
+// lib/stores/ptsDataStore.ts
 import type { PTSApiResponse } from '$lib/types';
 import { writable } from 'svelte/store';
 

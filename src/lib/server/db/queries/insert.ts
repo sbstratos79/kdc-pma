@@ -3,12 +3,11 @@ import { architects, projects, tasks, subtasks } from '$lib/server/db/schema';
 import { db } from './db';
 
 // Insert a new architect
-export async function insertArchitect(data: { firstName: string; lastName: string }) {
+export async function insertArchitect(data: { name: string }) {
   const result = await db
     .insert(architects)
     .values({
-      firstName: data.firstName,
-      lastName: data.lastName
+      name: data.name
     })
     .returning();
 

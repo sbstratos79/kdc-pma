@@ -160,14 +160,14 @@
 												{task.taskStatus}
 											</span>
 										{/if}
-										{#if task.architectFirstName}
+										{#if task.architectName}
 											<span
 												class="min-w-0 flex-shrink overflow-hidden
           										rounded-full border border-rose-200 bg-rose-100 px-2.5
           										py-0.5 text-sm font-bold whitespace-nowrap text-rose-800 lg:text-lg
         											"
 											>
-												{task.architectFirstName}
+												{task.architectName}
 											</span>
 										{/if}
 										{#if task.projectName}
