@@ -8,85 +8,30 @@
 
 	import { SvelteDate } from 'svelte/reactivity';
 
-	import { 
-		taskData, 
-		architectData, 
+	import {
+		// taskData,
+		architectData,
 		projectData,
-		statusOptions as statusEnum, 
-		priorityOptions as priorityEnum 
+		statusOptions as statusEnum,
+		priorityOptions as priorityEnum
 	} from '$lib/stores/ptsDataStore';
 	import type { Subtask, Task } from '$lib/types';
 
+	// Using the same $state pattern you had
 	let api = $state();
 	let loading = $state(true);
 	let error: string | null = $state(null);
 	let tasks = $state<Task[]>([]);
 
 	// Dynamic options - will be populated on mount
-	let statusOptions = $state<Array<{id: string, label: string}>>([]);
-	let priorityOptions = $state<Array<{id: string, label: string}>>([]);
-	let architectOptions = $state<Array<{id: string, label: string}>>([]);
-	let projectOptions = $state<Array<{id: string, label: string}>>([]);
+	let statusOptions = $state<Array<{ id: string; label: string }>>([]);
+	let priorityOptions = $state<Array<{ id: string; label: string }>>([]);
+	let architectOptions = $state<Array<{ id: string; label: string }>>([]);
+	let projectOptions = $state<Array<{ id: string; label: string }>>([]);
 
-	// Load data on mount
-	onMount(async () => {
-		try {
-			// Load tasks
-			const data = $taskData;
-			tasks = data || [];
-
-			// Load architects dynamically from ptsStore
-			const architects = $architectData;
-			architectOptions = [
-				...(architects?.map(arch => ({
-					id: arch.architectId,
-					label: arch.architectName
-				})) || [])
-			];
-
-			// Load projects dynamically from ptsStore
-			const projects = $projectData;
-			projectOptions = [
-				...(projects?.map(project => ({
-					id: project.projectId,
-					label: project.projectName
-				})) || [])
-			];
-
-			// Load status options from ptsStore
-			const statuses = $statusEnum;
-			statusOptions = [
-				{ id: 'all', label: 'All Status' },
-				...(statuses?.map(status => ({
-					id: status,
-					label: status
-				})) || [])
-			];
-
-			// Load priority options from ptsStore
-			const priorities = $priorityEnum;
-			priorityOptions = [
-				{ id: 'all', label: 'All Priorities' },
-				...(priorities?.map(priority => ({
-					id: priority,
-					label: priority
-				})) || [])
-			];
-
-		} catch (err) {
-			if (err instanceof Error) {
-				error = err.message;
-			}
-		} finally {
-			loading = false;
-		}
-	});
-
-	// Register custom editors
-	registerEditorItem('richselect', RichSelect);
-	registerEditorItem('datepicker', DatePicker);
-
-	// Helper function to convert date strings to Date objects
+	// ----------------------
+	// Helpers
+	// ----------------------
 	const parseDate = (value: Date | string | null) => {
 		if (!value) return null;
 		if (value instanceof Date) return value;
@@ -97,7 +42,217 @@
 		return null;
 	};
 
-	// Grid columns configuration - reactive to options loading
+	const dateToIso = (d: Date | string | null) => {
+		if (!d) return null;
+		if (d instanceof Date) return d.toISOString();
+		if (typeof d === 'string') {
+			// assume user typed ISO or readable string — try to parse
+			const parsed = new Date(d);
+			return isNaN(parsed.getTime()) ? null : parsed.toISOString();
+		}
+		return null;
+	};
+
+	// Normalize API response structure: expect { data: <...> }
+	async function handleJsonResponse(res: Response) {
+		if (!res.ok) {
+			let msg = `Request failed: ${res.status}`;
+			try {
+				const json = await res.json();
+				if (json?.error) msg = json.error;
+				else if (json?.message) msg = json.message;
+			} catch {
+				/* ignore JSON parse errors */
+			}
+			throw new Error(msg);
+		}
+		return res.json();
+	}
+
+	// ----------------------
+	// Data fetching + CRUD
+	// ----------------------
+	// Fetch tasks from server. Fallback to ptsDataStore if network fails.
+	async function fetchTasks(): Promise<Task[]> {
+		try {
+			const res = await fetch('/api/tasks', { method: 'GET' });
+			const json = await handleJsonResponse(res);
+			// assume json.data is array of tasks
+			return (json.data as Task[]) || [];
+		} catch (err) {
+			// fallback: use local store snapshot if available
+			console.warn('fetchTasks failed, falling back to local store:', err);
+			// const fallback = $taskData;
+			return [];
+		}
+	}
+
+	async function fetchEnums(): Promise<Task[]> {
+		try {
+			const res = await fetch('/api/enums', { method: 'GET' });
+			const json = await handleJsonResponse(res);
+			const { priority, status } = json.data;
+			// assume json.data is array of tasks
+			return (priority, status);
+		} catch (err) {
+			// fallback: use local store snapshot if available
+			console.warn('fetchTasks failed, falling back to local store:', err);
+			// const fallback = $taskData;
+			return [];
+		}
+	}
+
+	// Create task
+	async function createTask(taskDataInput: Partial<Task>) {
+		const payload = {
+			// map to the DB/endpoint shape (dates -> ISO strings)
+			name: taskDataInput.taskName ?? '',
+			description: taskDataInput.taskDescription ?? null,
+			startDate: dateToIso(taskDataInput.taskStartDate as any) ?? null,
+			dueDate: dateToIso(taskDataInput.taskDueDate as any) ?? null,
+			status: taskDataInput.taskStatus ?? 'Planning',
+			priority: taskDataInput.taskPriority ?? 'Medium',
+			projectId: taskDataInput.projectId ?? null,
+			architectId: taskDataInput.architectId ?? null
+		};
+
+		const res = await fetch('/api/tasks', {
+			method: 'POST',
+			headers: { 'Content-Type': 'application/json' },
+			body: JSON.stringify(payload)
+		});
+		const json = await handleJsonResponse(res);
+		// Expect created task in json.data
+		const created: Task = mapServerTaskToDto(json.data);
+		// update local state
+		tasks = [...tasks, created];
+		return created;
+	}
+
+	// Update task
+	async function updateTask(taskId: string, updates: Partial<Task>) {
+		// prepare payload only with changed fields that the API expects
+		const payload: any = {};
+		if ('taskName' in updates) payload.name = updates.taskName;
+		if ('taskDescription' in updates) payload.description = updates.taskDescription ?? null;
+		if ('taskStartDate' in updates) payload.startDate = dateToIso(updates.taskStartDate as any);
+		if ('taskDueDate' in updates) payload.dueDate = dateToIso(updates.taskDueDate as any);
+		if ('taskStatus' in updates) payload.status = updates.taskStatus;
+		if ('taskPriority' in updates) payload.priority = updates.taskPriority;
+		if ('projectId' in updates) payload.projectId = updates.projectId;
+		if ('architectId' in updates) payload.architectId = updates.architectId;
+
+		const res = await fetch(`/api/tasks/${encodeURIComponent(taskId)}`, {
+			method: 'PUT',
+			headers: { 'Content-Type': 'application/json' },
+			body: JSON.stringify(payload)
+		});
+		const json = await handleJsonResponse(res);
+		const updated: Task = mapServerTaskToDto(json.data);
+
+		// update local list
+		tasks = tasks.map((t) => (t.taskId === taskId ? { ...t, ...updated } : t));
+		return updated;
+	}
+
+	// Delete task
+	async function deleteTask(taskId: string) {
+		const res = await fetch(`/api/tasks/${encodeURIComponent(taskId)}`, {
+			method: 'DELETE'
+		});
+		await handleJsonResponse(res);
+		// update local list
+		tasks = tasks.filter((t) => t.taskId !== taskId);
+	}
+
+	// Map server DB row -> frontend DTO (Task). Adjust fields to match your server response.
+	function mapServerTaskToDto(serverRow: any): Task {
+		// serverRow is expected to include taskId, name, description, startDate, dueDate, status, priority, projectId, architectId
+		return {
+			architectId: serverRow.architectId ?? serverRow.architect_id ?? '',
+			architectName: serverRow.architectName ?? serverRow.architect_name ?? '',
+			taskId: serverRow.taskId ?? serverRow.task_id ?? serverRow.id ?? '',
+			taskName: serverRow.name ?? '',
+			taskDescription: serverRow.description ?? null,
+			taskStartDate: serverRow.startDate ?? serverRow.start_date ?? null,
+			taskDueDate: serverRow.dueDate ?? serverRow.due_date ?? null,
+			taskStatus: serverRow.status ?? '',
+			taskPriority: serverRow.priority ?? '',
+			projectId: serverRow.projectId ?? serverRow.project_id ?? '',
+			projectName: serverRow.projectName ?? serverRow.project_name ?? '',
+			subtasks: (serverRow.subtasks ?? []).map((s: any) => ({
+				subtaskId: s.subtaskId ?? s.subtask_id ?? s.id ?? '',
+				subtaskName: s.name,
+				subtaskDescription: s.description ?? null,
+				subtaskStatus: s.status ?? '',
+				taskId: s.taskId ?? s.task_id ?? serverRow.taskId ?? '',
+				taskName: serverRow.name ?? ''
+			}))
+		};
+	}
+
+	// ----------------------
+	// Load initial data on mount
+	// ----------------------
+	onMount(async () => {
+		try {
+			loading = true;
+			// fetch tasks from server (preferred)
+			tasks = await fetchTasks();
+
+			// Load architects dynamically from ptsStore (as fallback / initial options)
+			const architects = $architectData;
+			architectOptions = [
+				...(architects?.map((arch) => ({
+					id: arch.architectId,
+					label: arch.architectName
+				})) || [])
+			];
+
+			// Load projects dynamically from ptsStore
+			const projects = $projectData;
+			projectOptions = [
+				...(projects?.map((project) => ({
+					id: project.projectId,
+					label: project.projectName
+				})) || [])
+			];
+
+			// Load status options from ptsStore
+			const statuses = $statusEnum;
+			statusOptions = [
+				{ id: 'all', label: 'All Status' },
+				...(statuses?.map((status) => ({
+					id: status,
+					label: status
+				})) || [])
+			];
+
+			// Load priority options from ptsStore
+			const priorities = $priorityEnum;
+			priorityOptions = [
+				{ id: 'all', label: 'All Priorities' },
+				...(priorities?.map((priority) => ({
+					id: priority,
+					label: priority
+				})) || [])
+			];
+		} catch (err) {
+			if (err instanceof Error) {
+				error = err.message;
+			} else {
+				error = String(err);
+			}
+		} finally {
+			loading = false;
+		}
+	});
+
+	// Register custom editors
+	registerEditorItem('richselect', RichSelect);
+	registerEditorItem('datepicker', DatePicker);
+
+	// Grid columns configuration - same as original but stays reactive to options loading
 	let columns = $derived([
 		{
 			id: 'taskId',
@@ -140,7 +295,7 @@
 			id: 'taskStatus',
 			header: 'Status',
 			editor: 'richselect',
-			options: statusOptions.filter(opt => opt.id !== 'all'),
+			options: statusOptions.filter((opt) => opt.id !== 'all'),
 			width: 120,
 			template: (v: string | null) => v || 'Planning',
 			sort: true
@@ -149,7 +304,7 @@
 			id: 'taskPriority',
 			header: 'Priority',
 			editor: 'richselect',
-			options: priorityOptions.filter(opt => opt.id !== 'all'),
+			options: priorityOptions.filter((opt) => opt.id !== 'all'),
 			width: 100,
 			sort: true
 		},
@@ -214,69 +369,12 @@
 		});
 	};
 
-	// API functions
-	async function updateTask(taskId: string, updates: Partial<Task>) {
-		const response = await fetch('/api/pts', {
-			method: 'PUT',
-			headers: { 'Content-Type': 'application/json' },
-			body: JSON.stringify({
-				type: 'task',
-				id: taskId,
-				data: updates
-			})
-		});
-
-		if (!response.ok) {
-			throw new Error('Failed to update task');
-		}
-
-		// Update local data
-		const taskIndex = tasks.findIndex((t) => t.taskId === taskId);
-		if (taskIndex !== -1) {
-			tasks[taskIndex] = { ...tasks[taskIndex], ...updates };
-		}
-	}
-
-	async function deleteTask(taskId: string) {
-		const response = await fetch('/api/delete-task', {
-			method: 'DELETE',
-			headers: { 'Content-Type': 'application/json' },
-			body: JSON.stringify({
-				type: 'task',
-				id: taskId
-			})
-		});
-
-		if (!response.ok) {
-			throw new Error('Failed to delete task');
-		}
-	}
-
-	async function createTask(taskData: Partial<Task>) {
-		const response = await fetch('/api/pts', {
-			method: 'POST',
-			headers: { 'Content-Type': 'application/json' },
-			body: JSON.stringify({
-				type: 'task',
-				data: taskData
-			})
-		});
-
-		if (!response.ok) {
-			throw new Error('Failed to create task');
-		}
-
-		const result = await response.json();
-		return result.data;
-	}
-
-	// Filter and search functionality
+	// Filter and search functionality (unchanged)
 	let searchTerm = $state('');
 	let statusFilter = $state('all');
 	let priorityFilter = $state('all');
 	let dueRange = $state({ start: null, end: null });
 
-	// Create filter function based on current filter values
 	function createFilter(filterValues) {
 		const { searchTerm, statusFilter, priorityFilter, dueRange } = filterValues;
 
@@ -430,6 +528,7 @@
 								});
 							} else {
 								const newTask = await createTask(values);
+								// If API returns server-supplied IDs & fields, add it
 								tasks = [...tasks, newTask];
 							}
 							closeEditor();
