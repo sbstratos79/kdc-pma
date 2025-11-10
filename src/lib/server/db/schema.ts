@@ -1,63 +1,82 @@
-import { pgTable, foreignKey, text, date, uuid, unique, bigint, pgEnum } from "drizzle-orm/pg-core"
-import { sql } from "drizzle-orm"
+import { sqliteTable, uniqueIndex, check, text, integer } from 'drizzle-orm/sqlite-core';
+import { sql } from 'drizzle-orm';
 
-export const priority = pgEnum("Priority", ['High', 'Medium', 'Low'])
-export const status = pgEnum("Status", ['Planning', 'In Progress', 'Completed', 'On Hold', 'Cancelled'])
+export const architects = sqliteTable(
+	'architects',
+	{
+		architectId: text('architect_id').primaryKey().notNull(),
+		name: text().notNull(),
+		email: text(),
+		phoneNumber: integer('phone_number')
+	},
+	(table) => [
+		uniqueIndex('architects_phone_number_unique').on(table.phoneNumber),
+		uniqueIndex('architects_email_unique').on(table.email),
+		check(
+			'projects_check_1',
+			sql`status IN ('Planning','In Progress','Completed','On Hold','Cancelled'`
+		),
+		check('projects_check_2', sql`priority IN ('High','Medium','Low'`),
+		check(
+			'tasks_check_3',
+			sql`status IN ('Planning','In Progress','Completed','On Hold','Cancelled'`
+		),
+		check('tasks_check_4', sql`priority IN ('High','Medium','Low'`)
+	]
+);
 
+export const projects = sqliteTable(
+	'projects',
+	{
+		projectId: text('project_id').primaryKey().notNull(),
+		name: text().notNull(),
+		description: text(),
+		startDate: text('start_date'),
+		dueDate: text('due_date'),
+		status: text().notNull(),
+		priority: text().notNull()
+	},
+	() => [
+		check(
+			'projects_check_1',
+			sql`status IN ('Planning','In Progress','Completed','On Hold','Cancelled'`
+		),
+		check('projects_check_2', sql`priority IN ('High','Medium','Low'`),
+		check(
+			'tasks_check_3',
+			sql`status IN ('Planning','In Progress','Completed','On Hold','Cancelled'`
+		),
+		check('tasks_check_4', sql`priority IN ('High','Medium','Low'`)
+	]
+);
 
-export const tasks = pgTable("tasks", {
-	name: text().notNull(),
-	description: text(),
-	startDate: date("start_date"),
-	dueDate: date("due_date"),
-	status: status().notNull(),
-	priority: priority().notNull(),
-	architectId: uuid("architect_id").notNull(),
-	projectId: uuid("project_id").notNull(),
-	taskId: uuid("task_id").defaultRandom().primaryKey().notNull(),
-}, (table) => [
-	foreignKey({
-			columns: [table.architectId],
-			foreignColumns: [architects.architectId],
-			name: "tasks_architect_id_fkey"
-		}).onUpdate("cascade").onDelete("set null"),
-	foreignKey({
-			columns: [table.projectId],
-			foreignColumns: [projects.projectId],
-			name: "tasks_project_id_fkey"
-		}).onUpdate("cascade").onDelete("cascade"),
-]);
-
-export const projects = pgTable("projects", {
-	projectId: uuid("project_id").defaultRandom().primaryKey().notNull(),
-	name: text().notNull(),
-	description: text(),
-	startDate: date("start_date"),
-	dueDate: date("due_date"),
-	status: status().notNull(),
-	priority: priority().notNull(),
-}, (table) => [
-	unique("Projects_Name_key").on(table.name),
-]);
-
-export const subtasks = pgTable("subtasks", {
-	subtaskId: uuid("subtask_id").defaultRandom().primaryKey().notNull(),
-	name: text().notNull(),
-	description: text(),
-	status: status().notNull(),
-	taskId: uuid("task_id").notNull(),
-}, (table) => [
-	foreignKey({
-			columns: [table.taskId],
-			foreignColumns: [tasks.taskId],
-			name: "subtasks_task_id_fkey"
-		}).onUpdate("cascade").onDelete("cascade"),
-]);
-
-export const architects = pgTable("architects", {
-	architectId: uuid("architect_id").defaultRandom().primaryKey().notNull(),
-	name: text().notNull(),
-	email: text(),
-	// You can use { mode: "bigint" } if numbers are exceeding js number limitations
-	phoneNumber: bigint("phone_number", { mode: "number" }),
-});
+export const tasks = sqliteTable(
+	'tasks',
+	{
+		taskId: text('task_id').primaryKey().notNull(),
+		name: text().notNull(),
+		description: text(),
+		startDate: text('start_date'),
+		dueDate: text('due_date'),
+		status: text().notNull(),
+		priority: text().notNull(),
+		architectId: text('architect_id')
+			.notNull()
+			.references(() => architects.architectId, { onDelete: 'set null', onUpdate: 'cascade' }),
+		projectId: text('project_id')
+			.notNull()
+			.references(() => projects.projectId, { onDelete: 'cascade', onUpdate: 'cascade' })
+	},
+	() => [
+		check(
+			'projects_check_1',
+			sql`status IN ('Planning','In Progress','Completed','On Hold','Cancelled'`
+		),
+		check('projects_check_2', sql`priority IN ('High','Medium','Low'`),
+		check(
+			'tasks_check_3',
+			sql`status IN ('Planning','In Progress','Completed','On Hold','Cancelled'`
+		),
+		check('tasks_check_4', sql`priority IN ('High','Medium','Low'`)
+	]
+);

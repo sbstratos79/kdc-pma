@@ -1,8 +1,14 @@
+// src/lib/server/db/db.ts
 import 'dotenv/config';
-import { drizzle } from 'drizzle-orm/postgres-js';
-import postgres from 'postgres';
+import { createClient } from '@libsql/client';
+import { drizzle } from 'drizzle-orm/libsql';
 
-import * as schema from '$lib/server/db/schema';
+const url = process.env.DB_FILE_NAME!;
 
-const client = postgres(process.env.DATABASE_URL, { prepare: false });
-export const db = drizzle(client, { schema });
+// createClient accepts an object with url
+const client = createClient({
+	url
+});
+
+// create drizzle instance using libsql adapter
+export const db = drizzle(client);

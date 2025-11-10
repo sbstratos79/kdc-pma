@@ -1,29 +1,21 @@
 import { relations } from "drizzle-orm/relations";
-import { architects, tasks, projects, subtasks } from "./schema";
+import { projects, tasks, architects } from "./schema";
 
-export const tasksRelations = relations(tasks, ({one, many}) => ({
-	architect: one(architects, {
-		fields: [tasks.architectId],
-		references: [architects.architectId]
-	}),
+export const tasksRelations = relations(tasks, ({one}) => ({
 	project: one(projects, {
 		fields: [tasks.projectId],
 		references: [projects.projectId]
 	}),
-	subtasks: many(subtasks),
-}));
-
-export const architectsRelations = relations(architects, ({many}) => ({
-	tasks: many(tasks),
+	architect: one(architects, {
+		fields: [tasks.architectId],
+		references: [architects.architectId]
+	}),
 }));
 
 export const projectsRelations = relations(projects, ({many}) => ({
 	tasks: many(tasks),
 }));
 
-export const subtasksRelations = relations(subtasks, ({one}) => ({
-	task: one(tasks, {
-		fields: [subtasks.taskId],
-		references: [tasks.taskId]
-	}),
+export const architectsRelations = relations(architects, ({many}) => ({
+	tasks: many(tasks),
 }));

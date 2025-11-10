@@ -1,14 +1,5 @@
 // src/lib/types.ts
 
-export interface Subtask {
-	subtaskId: string;
-	subtaskName: string;
-	subtaskDescription: string | null;
-	subtaskStatus: string;
-	taskId: string;
-	taskName: string;
-}
-
 export interface Task {
 	architectId: string;
 	architectName: string;
@@ -21,7 +12,6 @@ export interface Task {
 	taskPriority: string;
 	projectId: string;
 	projectName: string;
-	subtasks: Subtask[];
 }
 
 export interface Project {
