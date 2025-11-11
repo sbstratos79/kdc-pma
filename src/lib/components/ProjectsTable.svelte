@@ -6,33 +6,17 @@
 	import { parseDate, dateToIso, formatDate } from '$lib/utils/dateUtils';
 	import { SvelteDate } from 'svelte/reactivity';
 
-	import { architectsStore, projectsStore, tasksStore, enumsStore } from '$lib/stores';
-	import type { Task } from '$lib/types';
+	import { projectsStore, enumsStore } from '$lib/stores';
+	import type { Project } from '$lib/types';
 
 	// Grid API and state
 	let api = $state();
-	let dataToEdit = $state<Task | null>(null);
+	let dataToEdit = $state<Project | null>(null);
 
 	// Reactive state from stores - use $derived with store snapshots
-	let tasksState = $state({ list: [], loading: true, error: null });
-	let architectsState = $state({ list: [], loading: true, error: null });
 	let projectsState = $state({ list: [], loading: true, error: null });
 
 	// Subscribe to stores
-	$effect(() => {
-		const unsubTasks = tasksStore.subscribe((state) => {
-			tasksState = state;
-		});
-		return unsubTasks;
-	});
-
-	$effect(() => {
-		const unsubArchitects = architectsStore.subscribe((state) => {
-			architectsState = state;
-		});
-		return unsubArchitects;
-	});
-
 	$effect(() => {
 		const unsubProjects = projectsStore.subscribe((state) => {
 			projectsState = state;
@@ -41,15 +25,9 @@
 	});
 
 	// Derived values from state
-	let tasks = $derived(tasksState.list);
-	let loading = $derived(tasksState.loading);
-	let error = $derived(tasksState.error);
-	let architectOptions = $derived(
-		architectsState.list.map((a) => ({ id: a.architectId, label: a.architectName }))
-	);
-	let projectOptions = $derived(
-		projectsState.list.map((p) => ({ id: p.projectId, label: p.projectName }))
-	);
+	let projects = $derived(projectsState.list);
+	let loading = $derived(projectsState.loading);
+	let error = $derived(projectsState.error);
 
 	// Dynamic options from enums
 	let statusOptions = $state<Array<{ id: string; label: string }>>([]);
@@ -72,19 +50,10 @@
 				enumsStore.load().then((r) => {
 					return r;
 				}),
-				architectsStore.load().then((r) => {
-					return r;
-				}),
 				projectsStore.load().then((r) => {
-					return r;
-				}),
-				tasksStore.load().then((r) => {
 					return r;
 				})
 			]);
-
-			// Update tasks with architect and project names
-			tasksStore.loadWithNames(architectsState.byId, projectsState.byId);
 
 			// Get enums from store
 			const enumsState = $enumsStore;
@@ -118,44 +87,28 @@
 	// Grid columns configuration
 	let columns = $derived([
 		{
-			id: 'taskId',
+			id: 'projectId',
 			header: 'ID',
 			width: 80,
 			readonly: true,
 			hidden: true
 		},
 		{
-			id: 'taskName',
-			header: 'Task Name',
+			id: 'projectName',
+			header: 'Project Name',
 			editor: 'text',
 			width: 200,
 			flexgrow: 1
 		},
 		{
-			id: 'taskDescription',
+			id: 'projectDescription',
 			header: 'Description',
 			editor: 'textarea',
 			width: 450,
 			template: (v: string | null) => v || 'No description'
 		},
 		{
-			id: 'architectId',
-			header: 'Architect',
-			width: 120,
-			sort: true,
-			editor: 'richselect',
-			options: architectOptions
-		},
-		{
-			id: 'projectId',
-			header: 'Project',
-			width: 150,
-			sort: true,
-			editor: 'richselect',
-			options: projectOptions
-		},
-		{
-			id: 'taskStatus',
+			id: 'projectStatus',
 			header: 'Status',
 			editor: 'richselect',
 			options: statusOptions.filter((opt) => opt.id !== 'all'),
@@ -164,7 +117,7 @@
 			sort: true
 		},
 		{
-			id: 'taskPriority',
+			id: 'projectPriority',
 			header: 'Priority',
 			editor: 'richselect',
 			options: priorityOptions.filter((opt) => opt.id !== 'all'),
@@ -172,7 +125,7 @@
 			sort: true
 		},
 		{
-			id: 'taskStartDate',
+			id: 'projectStartDate',
 			header: 'Start Date',
 			width: 120,
 			editor: 'datepicker',
@@ -180,7 +133,7 @@
 			sort: true
 		},
 		{
-			id: 'taskDueDate',
+			id: 'projectDueDate',
 			header: 'Due Date',
 			width: 120,
 			editor: 'datepicker',
@@ -199,8 +152,8 @@
 			// Convert date strings to Date objects for the editor
 			dataToEdit = {
 				...rawData,
-				taskStartDate: parseDate(rawData.taskStartDate),
-				taskDueDate: parseDate(rawData.taskDueDate)
+				projectStartDate: parseDate(rawData.projectStartDate),
+				projectDueDate: parseDate(rawData.projectDueDate)
 			};
 			return false;
 		});
@@ -212,8 +165,8 @@
 				if (rawData) {
 					dataToEdit = {
 						...rawData,
-						taskStartDate: parseDate(rawData.taskStartDate),
-						taskDueDate: parseDate(rawData.taskDueDate)
+						projectStartDate: parseDate(rawData.projectStartDate),
+						projectDueDate: parseDate(rawData.projectDueDate)
 					};
 				} else {
 					dataToEdit = null;
@@ -231,27 +184,27 @@
 	}) {
 		const { searchTerm, statusFilter, priorityFilter, dueRange } = filterValues;
 
-		return (task: Task) => {
+		return (project: Project) => {
 			// Search across multiple fields
 			const matchesSearch =
 				!searchTerm ||
 				[
-					task.taskName || '',
-					task.taskDescription || '',
-					task.projectName || '',
-					task.architectName || ''
+					project.projectName || '',
+					project.projectDescription || '',
+					project.projectName || ''
 				].some((field) => field.toLowerCase().includes(searchTerm.toLowerCase()));
 
 			// Status filter
-			const matchesStatus = statusFilter === 'all' || task.taskStatus === statusFilter;
+			const matchesStatus = statusFilter === 'all' || project.projectStatus === statusFilter;
 
 			// Priority filter
-			const matchesPriority = priorityFilter === 'all' || task.taskPriority === priorityFilter;
+			const matchesPriority =
+				priorityFilter === 'all' || project.projectPriority === priorityFilter;
 
 			// Due date range filter
 			const matchesDue = (() => {
 				if (!dueRange || (!dueRange.start && !dueRange.end)) return true;
-				const d = parseDate(task.taskDueDate);
+				const d = parseDate(project.projectDueDate);
 				if (!d) return false;
 				let start = dueRange.start ? new SvelteDate(dueRange.start) : null;
 				if (start) start.setHours(0, 0, 0, 0);
@@ -289,79 +242,74 @@
 	}
 
 	// Handle save (create or update)
-	async function handleSave(values: Partial<Task>) {
+	async function handleSave(values: Partial<Project>) {
 		try {
-			if (dataToEdit?.taskId) {
-				// Update existing task
-				const updated = await tasksStore.update(dataToEdit.taskId, values);
+			if (dataToEdit?.projectId) {
+				// Update existing project
+				const updated = await projectsStore.update(dataToEdit.projectId, values);
 				if (api) {
 					api.exec('update-row', {
-						id: dataToEdit.taskId,
+						id: dataToEdit.projectId,
 						row: updated
 					});
 				}
 			} else {
-				// Create new task - ensure required fields
-				if (!values.taskName || !values.projectId || !values.architectId) {
-					throw new Error('Task name, project, and architect are required');
+				// Create new project - ensure required fields
+				if (!values.projectName) {
+					throw new Error('Project name is required');
 				}
 
-				await tasksStore.create({
-					taskName: values.taskName,
-					projectId: values.projectId,
-					architectId: values.architectId,
-					taskDescription: values.taskDescription || null,
-					taskStartDate: dateToIso(values.taskStartDate as any) || null,
-					taskDueDate: dateToIso(values.taskDueDate as any) || null,
-					taskStatus: values.taskStatus || 'Planning',
-					taskPriority: values.taskPriority || 'Medium'
+				await projectsStore.create({
+					projectId: '',
+					projectName: values.projectName,
+					projectDescription: values.projectDescription || null,
+					projectStartDate: dateToIso(values.projectStartDate as any) || null,
+					projectDueDate: dateToIso(values.projectDueDate as any) || null,
+					projectStatus: values.projectStatus || 'Planning',
+					projectPriority: values.projectPriority || 'Medium'
 				});
 			}
 			closeEditor();
 		} catch (err) {
 			console.error('Save failed:', err);
-			alert(err instanceof Error ? err.message : 'Failed to save task');
+			alert(err instanceof Error ? err.message : 'Failed to save project');
 		}
 	}
 
 	// Handle delete
 	async function handleDelete() {
-		if (!dataToEdit?.taskId) return;
+		if (!dataToEdit?.projectId) return;
 
 		try {
-			await tasksStore.remove(dataToEdit.taskId);
+			await projectsStore.remove(dataToEdit.projectId);
 			if (api) {
-				api.exec('delete-row', { id: dataToEdit.taskId });
+				api.exec('delete-row', { id: dataToEdit.projectId });
 			}
 			closeEditor();
 		} catch (err) {
 			console.error('Delete failed:', err);
-			alert('Failed to delete task');
+			alert('Failed to delete project');
 		}
 	}
 
-	// Handle add new task
-	function handleAddTask() {
+	// Handle add new project
+	function handleAddProject() {
 		dataToEdit = {
-			taskId: '',
-			taskName: '',
-			taskDescription: null,
-			taskStatus: 'Planning',
-			taskPriority: 'Medium',
-			taskStartDate: new Date().toISOString(),
-			taskDueDate: null,
-			architectId: '',
-			architectName: '',
 			projectId: '',
-			projectName: ''
+			projectName: '',
+			projectDescription: null,
+			projectStatus: 'Planning',
+			projectPriority: 'Medium',
+			projectStartDate: new Date().toISOString(),
+			projectDueDate: null
 		} as any;
 	}
 </script>
 
 <Willow>
-	<div class="tasks-container">
+	<div class="project-container">
 		<div class="header">
-			<h2>Tasks Management</h2>
+			<h2>Projects Management</h2>
 			<div class="controls flex flex-row items-center gap-4">
 				<Text class="h-full" clear bind:value={searchTerm} onchange={handleFilter} />
 				<RichSelect
@@ -386,27 +334,27 @@
 				/>
 				<button
 					class="add-btn w-[400px] rounded-md bg-blue-500 p-2 text-white"
-					onclick={handleAddTask}
+					onclick={handleAddProject}
 				>
-					+ Add Task
+					+ Add Project
 				</button>
 			</div>
 		</div>
 
 		{#if loading}
-			<div class="loading">Loading tasks...</div>
+			<div class="loading">Loading projects...</div>
 		{:else if error}
 			<div class="error">Error: {error}</div>
-		{:else if !tasks || tasks.length === 0}
+		{:else if !projects || projects.length === 0}
 			<div class="no-data">
-				<p>No tasks found</p>
-				<pre>Debug: tasks = {JSON.stringify(tasks, null, 2)}</pre>
+				<p>No projects found</p>
+				<pre>Debug: projects= {JSON.stringify(projects, null, 2)}</pre>
 			</div>
 		{:else}
 			<div class="debug-info">
-				<p>Showing {tasks.length} tasks</p>
+				<p>Showing {projects.length} projects</p>
 			</div>
-			<Grid data={tasks} {columns} bind:this={api} {init} selection="row" autoheight={true} />
+			<Grid data={projects} {columns} bind:this={api} {init} selection="row" autoheight={true} />
 
 			{#if dataToEdit}
 				<Editor
@@ -426,12 +374,12 @@
 								type: 'danger',
 								text: 'Delete',
 								id: 'delete',
-								disabled: !dataToEdit.taskId
+								disabled: !dataToEdit.projectId
 							},
 							{
 								comp: 'button',
 								type: 'primary',
-								text: dataToEdit.taskId ? 'Update' : 'Create',
+								text: dataToEdit.projectId ? 'Update' : 'Create',
 								id: 'save'
 							}
 						]

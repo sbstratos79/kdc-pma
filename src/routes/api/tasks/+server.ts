@@ -1,12 +1,12 @@
 // src/routes/api/tasks/+server.ts
+
 import { json } from '@sveltejs/kit';
 import type { RequestHandler } from '@sveltejs/kit';
 import type { Task } from '$lib/types';
 
 import {
-	getTask,
 	createTask as repoCreateTask,
-	getTaskById as repoGetTaskById,
+	getTasks as repoGetTasks,
 	listTasks as repoListTasks,
 	updateTask as repoUpdateTask,
 	deleteTaskCascade
@@ -21,7 +21,7 @@ function isValidDate(dateString: string | null | undefined): boolean {
 
 // Map repo DTO (already shaped by getTask) passthrough
 function ensureTaskDto(t: any): Task {
-	// Minimal normalization — your getTask returns correct shape already
+	// Minimal normalization – your getTask returns correct shape already
 	return {
 		architectId: t.architectId ?? '',
 		architectName: t.architectName ?? '',
@@ -37,15 +37,26 @@ function ensureTaskDto(t: any): Task {
 	};
 }
 
-// GET /api/tasks
-export const GET: RequestHandler = async () => {
+// GET /api/tasks or GET /api/tasks?id=xxx
+export const GET: RequestHandler = async ({ url }) => {
 	try {
-		// repoListTasks returns raw rows (not full DTO), so we will call getTask for each
+		const id = url.searchParams.get('id');
+
+		// If id provided, fetch single task
+		if (id) {
+			const dto = await repoGetTasks(id);
+			if (!dto) {
+				return json({ error: 'Task not found' }, { status: 404 });
+			}
+			return json({ data: dto });
+		}
+
+		// Otherwise fetch all tasks
 		const raw = await repoListTasks(); // returns TaskSelect[] (rows)
 		// For performance you may want to implement a single joined query; for now do per-task DTO mapping
 		const tasks: Task[] = [];
 		for (const r of raw) {
-			const dto = await getTask(r.taskId);
+			const dto = await repoGetTasks(r.id);
 			if (dto) tasks.push(dto);
 		}
 		return json({ data: tasks });
@@ -60,6 +71,11 @@ export const POST: RequestHandler = async ({ request }) => {
 	try {
 		const body = await request.json();
 		// Accept either { name, ... } or your frontend Task-shaped fields
+		const taskId =
+			globalThis.crypto && (crypto as any).randomUUID
+				? (crypto as any).randomUUID()
+				: String(Date.now()) + Math.random();
+
 		const taskName = (body.name ?? body.taskName ?? '').trim();
 		const projectId = body.projectId ?? body.project_id ?? null;
 		const architectId = body.architectId ?? body.architect_id ?? null;
@@ -80,6 +96,7 @@ export const POST: RequestHandler = async ({ request }) => {
 		}
 
 		const created = await repoCreateTask({
+			id: taskId,
 			name: taskName,
 			description,
 			startDate,
@@ -95,7 +112,7 @@ export const POST: RequestHandler = async ({ request }) => {
 		}
 
 		// Return full DTO
-		const dto = await getTask(created.taskId);
+		const dto = await repoGetTasks(created.id);
 		return json({ data: dto ?? ensureTaskDto(created) }, { status: 201 });
 	} catch (err) {
 		console.error('POST /api/tasks error', err);
@@ -106,7 +123,7 @@ export const POST: RequestHandler = async ({ request }) => {
 // PUT /api/tasks/:id
 export const PUT: RequestHandler = async ({ request, params, url }) => {
 	// SvelteKit uses route params if file is +server.ts in [id] route; since this file is +server.ts in /api/tasks,
-	// the TaskGrid makes PUT to /api/tasks/:id — but this handler receives the raw request.
+	// the TaskGrid makes PUT to /api/tasks/:id – but this handler receives the raw request.
 	// If you prefer param routes, create file src/routes/api/tasks/[id]/+server.ts instead.
 	try {
 		// Try to read id from URL path last segment if present
@@ -144,7 +161,7 @@ export const PUT: RequestHandler = async ({ request, params, url }) => {
 			return json({ error: 'Task not found or not updated' }, { status: 404 });
 		}
 
-		const dto = await getTask(updated.taskId);
+		const dto = await repoGetTasks(updated.id);
 		return json({ data: dto ?? ensureTaskDto(updated) });
 	} catch (err) {
 		console.error('PUT /api/tasks error', err);

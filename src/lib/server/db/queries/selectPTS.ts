@@ -7,16 +7,16 @@ import { db } from '$lib/server/db/queries/db';
 export async function selectPTS() {
 	return await db
 		.select({
-			architectId: architects.architectId,
+			architectId: architects.id,
 			architectName: architects.name,
-			taskId: tasks.taskId,
+			taskId: tasks.id,
 			taskName: tasks.name,
 			taskDescription: tasks.description,
 			taskStartDate: tasks.startDate,
 			taskDueDate: tasks.dueDate,
 			taskStatus: tasks.status,
 			taskPriority: tasks.priority,
-			projectId: projects.projectId,
+			projectId: projects.id,
 			projectName: projects.name,
 			projectDescription: projects.description,
 			projectStatus: projects.status,
@@ -30,9 +30,9 @@ export async function selectPTS() {
 		})
 		.from(architects)
 		// FULL JOIN tasks ON architects.architectId = tasks.architectId
-		.fullJoin(tasks, eq(architects.architectId, tasks.architectId))
+		.fullJoin(tasks, eq(architects.id, tasks.architectId))
 		// LEFT JOIN subtasks ON tasks.taskId = subtasks.taskId
-		.leftJoin(subtasks, eq(tasks.taskId, subtasks.taskId))
+		.leftJoin(subtasks, eq(tasks.id, subtasks.taskId))
 		// RIGHT JOIN projects ON tasks.projectId = projects.projectId OR tasks.projectId = null
-		.rightJoin(projects, or(eq(tasks.projectId, projects.projectId), isNull(tasks.projectId)));
+		.rightJoin(projects, or(eq(tasks.projectId, projects.id), isNull(tasks.projectId)));
 }

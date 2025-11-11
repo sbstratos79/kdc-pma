@@ -1,14 +1,16 @@
+// src/routes/api/meta/+server.ts
+
 import { json } from '@sveltejs/kit';
-import type { RequestHandler } from './$types';
+import type { RequestHandler } from '../enums/$types';
 // Import your schema enums
-import { priority, status } from '$lib/server/db/schema';
+import { PRIORITIES, STATUSES } from '$lib/server/db/schema';
 
 export const GET: RequestHandler = async () => {
   try {
     // Extract enum values from the schema
     const enums = {
-      priority: priority.enumValues,
-      status: status.enumValues
+      status: STATUSES,
+      priority: PRIORITIES
     };
 
     return json(enums);

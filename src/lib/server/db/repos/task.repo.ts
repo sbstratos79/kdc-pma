@@ -16,16 +16,12 @@ export type TaskUpdate = Partial<TaskInsert>;
 /** Create task; checks existence of project and architect for friendlier errors */
 export async function createTask(input: TaskInsert): Promise<TaskSelect | null> {
 	const proj = await single(
-		db.select().from(projectsTable).where(eq(projectsTable.projectId, input.projectId)).limit(1)
+		db.select().from(projectsTable).where(eq(projectsTable.id, input.projectId)).limit(1)
 	);
 	if (!proj) throw new Error('Project not found');
 
 	const arch = await single(
-		db
-			.select()
-			.from(architectsTable)
-			.where(eq(architectsTable.architectId, input.architectId))
-			.limit(1)
+		db.select().from(architectsTable).where(eq(architectsTable.id, input.architectId)).limit(1)
 	);
 	if (!arch) throw new Error('Architect not found');
 
@@ -33,8 +29,8 @@ export async function createTask(input: TaskInsert): Promise<TaskSelect | null> 
 }
 
 /** Get raw task */
-export async function getTaskById(id: string): Promise<TaskSelect | null> {
-	return single(db.select().from(tasks).where(eq(tasks.taskId, id)).limit(1));
+export async function getTasks(id: string): Promise<TaskSelect | null> {
+	return single(db.select().from(tasks).where(eq(tasks.id, id)).limit(1));
 }
 
 /** List tasks (optionally by project) */
@@ -45,33 +41,33 @@ export async function listTasks(projectId?: string): Promise<TaskSelect[]> {
 
 /** Update task */
 export async function updateTask(id: string, changes: TaskUpdate): Promise<TaskSelect | null> {
-	return single(db.update(tasks).set(changes).where(eq(tasks.taskId, id)).returning());
+	return single(db.update(tasks).set(changes).where(eq(tasks.id, id)).returning());
 }
 
 /** Delete task (transactional hard delete) */
 export async function deleteTaskCascade(id: string): Promise<TaskSelect | null> {
 	return db.transaction(async (tx) => {
-		const deleted = await tx.delete(tasks).where(eq(tasks.taskId, id)).returning();
+		const deleted = await tx.delete(tasks).where(eq(tasks.id, id)).returning();
 		return (deleted as any)[0] ?? null;
 	});
 }
 
 /** Convenience: get task and architect/project names shaped to frontend DTO */
 export async function getTask(id: string): Promise<TaskDTO | null> {
-	const t = await getTaskById(id);
+	const t = await getTasks(id);
 	if (!t) return null;
 
 	const arch = await single(
-		db.select().from(architectsTable).where(eq(architectsTable.architectId, t.architectId)).limit(1)
+		db.select().from(architectsTable).where(eq(architectsTable.id, t.architectId)).limit(1)
 	);
 	const proj = await single(
-		db.select().from(projectsTable).where(eq(projectsTable.projectId, t.projectId)).limit(1)
+		db.select().from(projectsTable).where(eq(projectsTable.id, t.projectId)).limit(1)
 	);
 
 	const dto: TaskDTO = {
 		architectId: t.architectId,
 		architectName: arch?.name ?? '',
-		taskId: t.taskId,
+		taskId: t.id,
 		taskName: t.name,
 		taskDescription: t.description ?? null,
 		taskStartDate: t.startDate ?? null,

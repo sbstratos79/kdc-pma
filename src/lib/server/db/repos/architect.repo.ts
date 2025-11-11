@@ -15,8 +15,8 @@ export async function createArchitect(input: ArchitectInsert): Promise<Architect
 }
 
 /** Get architect by id (raw DB shape) */
-export async function getArchitectById(id: string): Promise<ArchitectSelect | null> {
-	return single(db.select().from(architects).where(eq(architects.architectId, id)).limit(1));
+export async function getArchitects(id: string): Promise<ArchitectSelect | null> {
+	return single(db.select().from(architects).where(eq(architects.id, id)).limit(1));
 }
 
 /** List all architects */
@@ -29,19 +29,17 @@ export async function updateArchitect(
 	id: string,
 	changes: ArchitectUpdate
 ): Promise<ArchitectSelect | null> {
-	return single(
-		db.update(architects).set(changes).where(eq(architects.architectId, id)).returning()
-	);
+	return single(db.update(architects).set(changes).where(eq(architects.id, id)).returning());
 }
 
 /** Delete architect (hard delete). If you want cascade or different behaviour, modify here. */
 export async function deleteArchitect(id: string): Promise<ArchitectSelect | null> {
-	return single(db.delete(architects).where(eq(architects.architectId, id)).returning());
+	return single(db.delete(architects).where(eq(architects.id, id)).returning());
 }
 
 /** Convenience: fetch architect with their tasks (DTO-shaped for frontend) */
 export async function getArchitectWithTasks(id: string): Promise<ArchitectDTO | null> {
-	const arch = await getArchitectById(id);
+	const arch = await getArchitects(id);
 	if (!arch) return null;
 
 	// tasks table referenced lazily to avoid circular imports in some configs
@@ -53,12 +51,12 @@ export async function getArchitectWithTasks(id: string): Promise<ArchitectDTO | 
 	for (const t of rawTasks) {
 		// fetch project name for each task (small N; you can optimize with joins if needed)
 		const proj = await single(
-			db.select().from(projectsTable).where(eq(projectsTable.projectId, t.projectId)).limit(1)
+			db.select().from(projectsTable).where(eq(projectsTable.id, t.projectId)).limit(1)
 		);
 		tasks.push({
-			architectId: arch.architectId,
+			architectId: arch.id,
 			architectName: arch.name,
-			taskId: t.taskId,
+			taskId: t.id,
 			taskName: t.name,
 			taskDescription: t.description ?? null,
 			taskStartDate: t.startDate ?? null,
@@ -66,14 +64,13 @@ export async function getArchitectWithTasks(id: string): Promise<ArchitectDTO | 
 			taskStatus: t.status,
 			taskPriority: t.priority,
 			projectId: t.projectId,
-			projectName: proj?.name ?? '',
-			subtasks: [] // not loaded here; call getTaskWithSubtasks if needed
+			projectName: proj?.name ?? ''
 		});
 	}
 
 	return {
-		architectId: arch.architectId,
-		architectName: arch.name,
-		tasks
+		architectId: arch.id,
+		architectName: arch.name
+		// tasks
 	};
 }

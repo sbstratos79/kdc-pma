@@ -16,8 +16,9 @@
 			<NavLi href="/studio">Studio</NavLi>
 			<NavLi href="/studio-projects">Studio Projects</NavLi>
 			<NavLi href="/projects">Projects</NavLi>
-			<NavLi href="/tasks">Tasks</NavLi>
-			<NavLi href="/subtasks">Subtasks</NavLi>
+			<NavLi href="/tasks-editor">Tasks Editor</NavLi>
+			<NavLi href="/projects-editor">Projects Editor</NavLi>
+			<NavLi href="/architects-editor">Architects Editor</NavLi>
 		</span>
 	</NavUl>
 </Navbar>

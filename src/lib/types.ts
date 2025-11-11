@@ -1,8 +1,8 @@
 // src/lib/types.ts
 
 export interface Task {
-	architectId: string;
-	architectName: string;
+	architectId: string | null;
+	architectName: string | null;
 	taskId: string;
 	taskName: string;
 	taskDescription: string | null;
@@ -28,7 +28,7 @@ export interface Project {
 export interface Architect {
 	architectId: string;
 	architectName: string;
-	tasks: Task[];
+	// tasks: Task[];
 }
 
 export interface ArchitectProject {
