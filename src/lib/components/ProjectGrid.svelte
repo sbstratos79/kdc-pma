@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
-	import { AccordionItem, Accordion } from 'flowbite-svelte';
+	import { Collapsible } from '@ark-ui/svelte/collapsible';
 	import { SvelteMap } from 'svelte/reactivity';
 	import EmblaCarousel, { type EmblaCarouselType } from 'embla-carousel';
 	import Autoplay from 'embla-carousel-autoplay';
@@ -178,42 +178,28 @@
 		{#each projectsWithTasks as project (project.projectId)}
 			{#if project}
 				{#if project.tasks.length > 0}
-					<Accordion
-						class="group inline-block w-full
-          					max-w-[350px]
-          					grow
-          					break-inside-avoid
-          					[-webkit-column-break-inside:avoid]
-          					[page-break-inside:avoid]"
+					<Collapsible.Root
+						defaultOpen
+						class="group w-full max-w-md min-w-xs grow rounded-xl border border-gray-200"
 					>
-						<AccordionItem
-							classes={{
-								inactive:
-									'flex h-[50px] rounded-xl flex-row items-center justify-between rounded-t-lg bg-gradient-to-r from-blue-50 to-purple-100 p-2 text-slate-800',
-								active:
-									'flex flex-row h-[50px] items-center justify-between rounded-t-lg bg-gradient-to-r from-blue-50 to-purple-100 text-slate-800',
-								content: 'p-2'
-							}}
-							open={project.tasks.length > 0}
+						<Collapsible.Trigger
+							class="flex h-[50px] w-full min-w-0 flex-1 flex-row items-center justify-between gap-2 rounded-t-lg bg-amber-200 bg-linear-to-r from-rose-50 to-indigo-100 px-4 text-slate-800"
 						>
-							{#snippet arrowup()}{/snippet}
-							{#snippet arrowdown()}{/snippet}
-							{#snippet header()}
-								<div class="flex min-w-0 flex-1 items-center gap-2">
-									<div
-										class="min-h-4 min-w-4 shrink-0 rounded-full {getPriorityColor(
-											project.projectPriority
-										)}"
-									></div>
-									<h2 class="truncate text-2xl font-black">
-										{project.projectName}
-									</h2>
-								</div>
-								<p class="ml-2 text-center text-2xl font-bold text-nowrap text-slate-800">
-									{project.tasks.length} task{project.tasks.length !== 1 ? 's' : ''}
-								</p>
-							{/snippet}
-
+							<div class="flex flex-row items-center justify-start gap-2">
+								<div
+									class="min-h-4 min-w-4 shrink-0 rounded-full {getPriorityColor(
+										project.projectPriority
+									)}"
+								></div>
+								<h2 class="truncate text-2xl font-black">
+									{project.projectName}
+								</h2>
+							</div>
+							<p class="ml-2 text-center text-2xl font-bold text-nowrap text-slate-800">
+								{project.tasks.length} task{project.tasks.length !== 1 ? 's' : ''}
+							</p>
+						</Collapsible.Trigger>
+						<Collapsible.Content class="m-2">
 							<!-- Project Content -->
 							<div class="flex flex-col">
 								<!-- Project Details -->
@@ -379,8 +365,8 @@
 									</div>
 								{/if}
 							</div>
-						</AccordionItem>
-					</Accordion>
+						</Collapsible.Content>
+					</Collapsible.Root>
 				{/if}
 			{/if}
 		{/each}
@@ -413,5 +399,31 @@
 		-webkit-line-clamp: 3;
 		-webkit-box-orient: vertical;
 		overflow: hidden;
+	}
+
+	@keyframes slideDown {
+		from {
+			height: 0;
+		}
+		to {
+			height: var(--height);
+		}
+	}
+
+	@keyframes slideUp {
+		from {
+			height: var(--height);
+		}
+		to {
+			height: 0;
+		}
+	}
+
+	[data-scope='collapsible'][data-part='content'][data-state='open'] {
+		animation: slideDown 250ms;
+	}
+
+	[data-scope='collapsible'][data-part='content'][data-state='closed'] {
+		animation: slideUp 200ms;
 	}
 </style>

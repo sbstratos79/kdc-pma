@@ -50,8 +50,9 @@
 		"vite": "^7.0.4"
 	},
 	"dependencies": {
+		"@ark-ui/svelte": "^5.12.1",
 		"@libsql/client": "^0.15.15",
-		"@lucide/svelte": "^0.525.0",
+		"@lucide/svelte": "^0.553.0",
 		"@splidejs/svelte-splide": "^0.2.9",
 		"embla-carousel": "^8.6.0",
 		"embla-carousel-autoplay": "^8.6.0",
