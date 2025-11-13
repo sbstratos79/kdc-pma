@@ -1,9 +1,8 @@
 <script lang="ts">
-	import { onMount } from 'svelte';
+	import { onMount, tick } from 'svelte';
 	import { Collapsible } from '@ark-ui/svelte/collapsible';
+	import { Carousel } from '@ark-ui/svelte/carousel';
 	import { SvelteMap } from 'svelte/reactivity';
-	import EmblaCarousel, { type EmblaCarouselType } from 'embla-carousel';
-	import Autoplay from 'embla-carousel-autoplay';
 	import { architectsStore, projectsStore, tasksStore } from '$lib/stores';
 	import { getPriorityColor, getPriorityGradient, getStatusColor } from '$lib/utils/colorUtils';
 	import { formatDate } from '$lib/utils/dateUtils';
@@ -61,47 +60,6 @@
 		return result;
 	});
 
-	// Embla instances per project
-	const carouselInstances = new SvelteMap<string, EmblaCarouselType>();
-
-	function initCarousel(node: HTMLElement, projectId: string) {
-		// if no tasks / single task, we still initialize so nav works consistently
-		const embla = EmblaCarousel(
-			node,
-			{
-				loop: true,
-				align: 'center',
-				skipSnaps: false,
-				dragFree: false
-			},
-			[
-				Autoplay({
-					delay: 4000,
-					stopOnInteraction: false,
-					stopOnMouseEnter: true
-				})
-			]
-		);
-
-		carouselInstances.set(projectId, embla);
-
-		return {
-			destroy() {
-				try {
-					embla.destroy();
-				} catch {}
-				carouselInstances.delete(projectId);
-			}
-		};
-	}
-
-	function navigateCarousel(projectId: string, direction: 'prev' | 'next') {
-		const embla: EmblaCarouselType = carouselInstances.get(projectId) as EmblaCarouselType;
-		if (!embla) return;
-		if (direction === 'prev') embla.scrollPrev();
-		else embla.scrollNext();
-	}
-
 	onMount(async () => {
 		try {
 			loading = true;
@@ -138,14 +96,6 @@
 			return () => {
 				window.removeEventListener('focus', handleFocus);
 				clearInterval(refreshInterval);
-				// destroy any remaining embla instances
-				for (const id of carouselInstances.keys()) {
-					const inst = carouselInstances.get(id);
-					try {
-						inst.destroy();
-					} catch {}
-				}
-				carouselInstances.clear();
 			};
 		} catch (err) {
 			console.error('Error loading data:', err);
@@ -176,198 +126,152 @@
 {:else}
 	<div class="flex flex-row flex-wrap items-start justify-center gap-2">
 		{#each projectsWithTasks as project (project.projectId)}
-			{#if project}
-				{#if project.tasks.length > 0}
-					<Collapsible.Root
-						defaultOpen
-						class="group w-full max-w-md min-w-xs grow rounded-xl border border-gray-200"
+			{#if project && project.tasks.length > 0}
+				<Collapsible.Root
+					defaultOpen
+					class="group w-full max-w-[350px] grow rounded-xl border border-gray-200"
+				>
+					<Collapsible.Trigger
+						class="flex h-[50px] w-full min-w-0 flex-1 flex-row items-center justify-between gap-2 rounded-t-lg bg-amber-200 bg-linear-to-r from-rose-50 to-indigo-100 px-4 text-slate-800"
 					>
-						<Collapsible.Trigger
-							class="flex h-[50px] w-full min-w-0 flex-1 flex-row items-center justify-between gap-2 rounded-t-lg bg-amber-200 bg-linear-to-r from-rose-50 to-indigo-100 px-4 text-slate-800"
-						>
-							<div class="flex flex-row items-center justify-start gap-2">
-								<div
-									class="min-h-4 min-w-4 shrink-0 rounded-full {getPriorityColor(
-										project.projectPriority
-									)}"
-								></div>
-								<h2 class="truncate text-2xl font-black">
-									{project.projectName}
-								</h2>
-							</div>
-							<p class="ml-2 text-center text-2xl font-bold text-nowrap text-slate-800">
-								{project.tasks.length} task{project.tasks.length !== 1 ? 's' : ''}
-							</p>
-						</Collapsible.Trigger>
-						<Collapsible.Content class="m-2">
-							<!-- Project Content -->
-							<div class="flex flex-col">
-								<!-- Project Details -->
-								<div class="shrink-0">
-									<div class="flex min-w-0 flex-col gap-2">
-										<div class="flex min-w-0 flex-1 items-center gap-2 overflow-hidden">
-											{#if project.projectStatus}
-												<span
-													class="shrink-0 rounded-full border px-2.5 py-0.5 text-sm font-bold whitespace-nowrap lg:text-lg {getStatusColor(
-														project.projectStatus
-													)}"
-												>
-													{project.projectStatus}
-												</span>
-											{/if}
-										</div>
-
-										<div
-											class="mb-2 flex items-center justify-between gap-2 text-lg font-medium text-gray-900 lg:text-xl"
-										>
-											<span>Start: {formatDate(project.projectStartDate)}</span>
-											<span>Due: {formatDate(project.projectDueDate)}</span>
-										</div>
+						<div class="flex flex-row items-center justify-start gap-2">
+							<div
+								class="min-h-4 min-w-4 shrink-0 rounded-full {getPriorityColor(
+									project.projectPriority
+								)}"
+							></div>
+							<h2 class="truncate text-2xl font-black">
+								{project.projectName}
+							</h2>
+						</div>
+						<p class="ml-2 text-center text-2xl font-bold text-nowrap text-slate-800">
+							{project.tasks.length} task{project.tasks.length !== 1 ? 's' : ''}
+						</p>
+					</Collapsible.Trigger>
+					<Collapsible.Content class="m-2">
+						<!-- Project Content -->
+						<div class="flex flex-col">
+							<!-- Project Details -->
+							<div class="shrink-0">
+								<div class="flex min-w-0 flex-col gap-2">
+									<div class="flex min-w-0 flex-1 items-center gap-2 overflow-hidden">
+										{#if project.projectStatus}
+											<span
+												class="shrink-0 rounded-full border px-2.5 py-0.5 text-sm font-bold whitespace-nowrap lg:text-lg {getStatusColor(
+													project.projectStatus
+												)}"
+											>
+												{project.projectStatus}
+											</span>
+										{/if}
 									</div>
 
-									{#if project.projectDescription}
-										<p class="text-md mt-2 text-gray-600 lg:text-lg">
-											{project.projectDescription}
-										</p>
-									{/if}
+									<div
+										class="mb-2 flex items-center justify-between gap-2 text-lg font-medium text-gray-900 lg:text-xl"
+									>
+										<span>Start: {formatDate(project.projectStartDate)}</span>
+										<span>Due: {formatDate(project.projectDueDate)}</span>
+									</div>
 								</div>
 
-								<!-- Tasks Section: Carousel where each task is a slide -->
-								{#if project.tasks.length > 0}
-									<div
-										class="mt-2 flex flex-1 flex-col overflow-hidden border-t border-gray-200 pt-2"
-									>
-										<!-- EMBLA: outer wrapper -->
-										<div class="relative flex flex-1 flex-col">
-											<div
-												class="embla overflow-hidden"
-												use:initCarousel={project.projectId}
-												aria-hidden={project.tasks.length === 0}
-											>
-												<div class="embla__container flex gap-4">
-													{#each project.tasks as task (task.taskId)}
-														<!-- each task => a slide -->
-														<div
-															class="embla__slide
-																min-w-full
-              									shrink
-																overflow-hidden
-              									px-2"
-														>
-															<div
-																class="flex h-full min-h-[100px] w-full flex-col justify-between rounded-2xl border border-neutral-600/20 bg-linear-to-br p-4 duration-200 md:p-5 {getPriorityGradient(
-																	task.taskPriority
-																)}"
-															>
-																<div class="flex items-center justify-between gap-2">
-																	<div class="min-w-0 flex-1">
-																		<p
-																			class="text-md min-w-0 flex-1 items-center truncate font-bold text-gray-900 md:text-lg"
-																		>
-																			{task.taskName}
-																		</p>
-																	</div>
-
-																	<div class="shrink-0">
-																		{#if task.taskStatus}
-																			<span
-																				class="lg:text-md inline-flex items-center rounded-full border px-2 py-1 text-xs font-medium whitespace-nowrap {getStatusColor(
-																					task.taskStatus
-																				)}"
-																			>
-																				{task.taskStatus}
-																			</span>
-																		{/if}
-																	</div>
-																</div>
-
-																{#if task.taskDescription}
-																	<p class="lg:text-md mt-2 line-clamp-3 text-sm text-gray-600">
-																		{task.taskDescription}
-																	</p>
-																{/if}
-
-																<div
-																	class="text-md mt-3 flex items-center justify-between gap-2 text-gray-800"
-																>
-																	<span>Start: {formatDate(task.taskStartDate)}</span>
-																	<span>Due: {formatDate(task.taskDueDate)}</span>
-																</div>
-
-																<!-- Assigned to (kept) -->
-																<div class="mt-3 border-t border-gray-200 pt-2 md:mt-4 md:pt-3">
-																	{#if task.architectName}
-																		<p class="text-lg text-gray-700">
-																			Assigned to:
-																			<span class="font-bold text-gray-900"
-																				>{task.architectName}</span
-																			>
-																		</p>
-																	{:else}
-																		<p class="text-xs text-gray-500 italic md:text-sm">
-																			Unassigned
-																		</p>
-																	{/if}
-																</div>
-															</div>
-														</div>
-													{/each}
-												</div>
-											</div>
-
-											<!-- nav buttons for each project's carousel -->
-											{#if project.tasks.length > 1}
-												<button
-													class="bg-opacity-90 hover:bg-opacity-100 absolute top-1/2 left-2 -translate-y-1/2 transform rounded-full bg-white p-2 text-gray-700 opacity-0 duration-200 group-hover:opacity-100"
-													onclick={() => navigateCarousel(project.projectId, 'prev')}
-													aria-label="Previous task"
-												>
-													<svg
-														class="h-5 w-5"
-														fill="none"
-														stroke="currentColor"
-														viewBox="0 0 24 24"
-													>
-														<path
-															stroke-linecap="round"
-															stroke-linejoin="round"
-															stroke-width="2"
-															d="M15 19l-7-7 7-7"
-														/>
-													</svg>
-												</button>
-
-												<button
-													class="bg-opacity-90 hover:bg-opacity-100 absolute top-1/2 right-2 -translate-y-1/2 transform rounded-full bg-white p-2 text-gray-700 opacity-0 duration-200 group-hover:opacity-100"
-													onclick={() => navigateCarousel(project.projectId, 'next')}
-													aria-label="Next task"
-												>
-													<svg
-														class="h-5 w-5"
-														fill="none"
-														stroke="currentColor"
-														viewBox="0 0 24 24"
-													>
-														<path
-															stroke-linecap="round"
-															stroke-linejoin="round"
-															stroke-width="2"
-															d="M9 5l7 7-7 7"
-														/>
-													</svg>
-												</button>
-											{/if}
-										</div>
-									</div>
-								{:else}
-									<div class="flex flex-1 items-center justify-center p-6">
-										<p class="text-center text-gray-500">No tasks assigned to this project</p>
-									</div>
+								{#if project.projectDescription}
+									<p class="text-md mt-2 text-gray-600 lg:text-lg">
+										{project.projectDescription}
+									</p>
 								{/if}
 							</div>
-						</Collapsible.Content>
-					</Collapsible.Root>
-				{/if}
+
+							<!-- Tasks Section: Carousel where each task is a slide -->
+							{#if project.tasks.length > 0}
+								<div
+									class="mt-2 flex flex-1 flex-col overflow-hidden border-t border-gray-200 pt-2"
+								>
+									<Carousel.Root
+										defaultPage={0}
+										slideCount={project.tasks.length}
+										autoplay={{ delay: 5000 }}
+										loop={true}
+										allowMouseDrag={true}
+									>
+										<Carousel.Control>
+											<Carousel.Context>
+												{#snippet render(api)}
+													<div style="background: yellow; padding: 4px; font-size: 12px;">
+														Debug: Playing={api.isPlaying ? 'YES' : 'NO'} | isDragging={api.isDragging
+															? 'YES'
+															: 'NO'} | canScrollNext={api.canScrollNext ? 'YES' : 'NO'}
+													</div>
+												{/snippet}
+											</Carousel.Context>
+										</Carousel.Control>
+										<Carousel.ItemGroup class="overflow-hidden">
+											{#each project.tasks as task, index (task.taskId)}
+												<Carousel.Item {index}>
+													<div
+														class="flex h-full min-h-[100px] w-full flex-col justify-between rounded-2xl border border-neutral-600/20 bg-linear-to-br p-4 duration-200 md:p-5 {getPriorityGradient(
+															task.taskPriority
+														)}"
+													>
+														<div class="flex items-center justify-between gap-2">
+															<div class="min-w-0 flex-1">
+																<p
+																	class="text-md min-w-0 flex-1 items-center truncate font-bold text-gray-900 md:text-lg"
+																>
+																	{task.taskName}
+																</p>
+															</div>
+
+															<div class="shrink-0">
+																{#if task.taskStatus}
+																	<span
+																		class="lg:text-md inline-flex items-center rounded-full border px-2 py-1 text-xs font-medium whitespace-nowrap {getStatusColor(
+																			task.taskStatus
+																		)}"
+																	>
+																		{task.taskStatus}
+																	</span>
+																{/if}
+															</div>
+														</div>
+
+														{#if task.taskDescription}
+															<p class="lg:text-md mt-2 line-clamp-3 text-sm text-gray-600">
+																{task.taskDescription}
+															</p>
+														{/if}
+
+														<div
+															class="text-md mt-3 flex items-center justify-between gap-2 text-gray-800"
+														>
+															<span>Start: {formatDate(task.taskStartDate)}</span>
+															<span>Due: {formatDate(task.taskDueDate)}</span>
+														</div>
+
+														<!-- Assigned to (kept) -->
+														<div class="mt-3 border-t border-gray-200 pt-2 md:mt-4 md:pt-3">
+															{#if task.architectName}
+																<p class="text-lg text-gray-700">
+																	Assigned to:
+																	<span class="font-bold text-gray-900">{task.architectName}</span>
+																</p>
+															{:else}
+																<p class="text-xs text-gray-500 italic md:text-sm">Unassigned</p>
+															{/if}
+														</div>
+													</div>
+												</Carousel.Item>
+											{/each}
+										</Carousel.ItemGroup>
+									</Carousel.Root>
+								</div>
+							{:else}
+								<div class="flex flex-1 items-center justify-center p-6">
+									<p class="text-center text-gray-500">No tasks assigned to this project</p>
+								</div>
+							{/if}
+						</div>
+					</Collapsible.Content>
+				</Collapsible.Root>
 			{/if}
 		{/each}
 	</div>
