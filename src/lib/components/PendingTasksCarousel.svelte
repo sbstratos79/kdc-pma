@@ -63,8 +63,7 @@
 	const getSlideWidth = () => {
 		if (typeof window === 'undefined') return 280;
 		if (window.innerWidth < 640) return 280; // mobile (sm breakpoint)
-		if (window.innerWidth < 1024) return 380; // tablet (lg breakpoint)
-		return 480; // desktop
+		return 380; // desktop
 	};
 
 	let slideWidth = $state(280);
@@ -246,7 +245,7 @@
 								<!-- Assigned to text - pinned to bottom -->
 								<div class="mt-3 border-t border-gray-200 pt-2 sm:mt-4 sm:pt-3">
 									{#if task.architectName}
-										<p class="text-md text-gray-700">
+										<p class="text-xl text-gray-700">
 											Assigned to: <span class="font-bold text-gray-900">{task.architectName}</span>
 										</p>
 									{:else}
