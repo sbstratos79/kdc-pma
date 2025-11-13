@@ -8,49 +8,27 @@ interface Task {
   projectName: string;
 }
 
-export type TTSEngine = 'browser' | 'kokoro';
-export type KokoroVoice =
-  | 'af_bella'
-  | 'af_sarah'
-  | 'am_adam'
-  | 'am_michael'
-  | 'bf_emma'
-  | 'bf_isabella'
-  | 'bm_george'
-  | 'bm_lewis';
-
 export interface TTSSettings {
-  engine: TTSEngine;
   enabled: boolean;
   speed: number;
   // Browser TTS settings
   browserVoice: string | null;
-  // Kokoro TTS settings
-  kokoroVoice: KokoroVoice;
 }
 
 class TTSNotificationService {
   private synth: SpeechSynthesis | null = null;
   private seenTaskIds: Set<string> = new Set();
   private settings: TTSSettings = {
-    engine: 'browser',
     enabled: true,
     speed: 0.9,
-    browserVoice: null,
-    kokoroVoice: 'af_bella'
+    browserVoice: null
   };
-  private audioContext: AudioContext | null = null;
-  private currentAudio: HTMLAudioElement | null = null;
 
   constructor() {
     if (typeof window !== 'undefined') {
       if ('speechSynthesis' in window) {
         this.synth = window.speechSynthesis;
         this.initBrowserVoice();
-      }
-      // Initialize Web Audio API for Kokoro
-      if ('AudioContext' in window || 'webkitAudioContext' in (window as any)) {
-        this.audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
       }
       this.loadSettings();
     }
@@ -172,11 +150,7 @@ class TTSNotificationService {
     const message = `New task for ${task.architectName}: ${task.taskName} for ${task.projectName}`;
     console.log('TTS: Announcing:', message);
 
-    if (this.settings.engine === 'kokoro') {
-      await this.announceWithKokoro(message);
-    } else {
-      this.announceWithBrowser(message);
-    }
+    this.announceWithBrowser(message);
   }
 
   /**
@@ -211,56 +185,6 @@ class TTSNotificationService {
   }
 
   /**
-   * Announce using Kokoro TTS
-   */
-  private async announceWithKokoro(message: string) {
-    try {
-      const response = await fetch('/api/tts', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          text: message,
-          voice: this.settings.kokoroVoice,
-          speed: this.settings.speed
-        })
-      });
-
-      if (!response.ok) {
-        throw new Error('Kokoro TTS request failed');
-      }
-
-      const { audio, contentType } = await response.json();
-
-      // Stop any currently playing audio
-      if (this.currentAudio) {
-        this.currentAudio.pause();
-        this.currentAudio = null;
-      }
-
-      // Create and play audio
-      this.currentAudio = new Audio(`data:${contentType};base64,${audio}`);
-      this.currentAudio.playbackRate = this.settings.speed;
-
-      this.currentAudio.onended = () => {
-        console.log('Kokoro TTS: Announcement complete');
-        this.currentAudio = null;
-      };
-
-      this.currentAudio.onerror = (err) => {
-        console.error('Kokoro TTS Audio Error:', err);
-        this.currentAudio = null;
-      };
-
-      await this.currentAudio.play();
-    } catch (err) {
-      console.error('Kokoro TTS Error:', err);
-      // Fallback to browser TTS
-      console.log('Falling back to browser TTS');
-      this.announceWithBrowser(message);
-    }
-  }
-
-  /**
    * Enable or disable TTS announcements
    */
   setEnabled(enabled: boolean) {
@@ -280,17 +204,13 @@ class TTSNotificationService {
     if (this.synth) {
       this.synth.cancel();
     }
-    if (this.currentAudio) {
-      this.currentAudio.pause();
-      this.currentAudio = null;
-    }
   }
 
   /**
    * Check if TTS is available
    */
   isAvailable(): boolean {
-    return this.synth !== null || this.audioContext !== null;
+    return this.synth !== null;
   }
 
   /**
