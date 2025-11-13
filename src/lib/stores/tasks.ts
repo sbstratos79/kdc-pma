@@ -2,6 +2,7 @@
 import { writable, get, type Writable } from 'svelte/store';
 import { createFetcher } from './_fetcher';
 import type { Task } from '$lib/types';
+import { ttsNotificationService } from '$lib/services/ttsNotificationService';
 
 type State = {
   loading: boolean;
@@ -10,7 +11,7 @@ type State = {
   byId: Record<string, Task>;
 };
 
-const fetcher = createFetcher<Task[]>('/api/tasks', 120_000);
+const fetcher = createFetcher<Task[]>('/api/tasks', 5000);
 
 function makeInitial(): State {
   return { loading: false, error: null, list: [], byId: {} };
@@ -18,6 +19,7 @@ function makeInitial(): State {
 
 function createTasksStore() {
   const store: Writable<State> = writable(makeInitial());
+  let isInitialLoad = true;
 
   // Map API response to Task DTO
   function mapApiResponseToTask(apiTask: any): Task {
@@ -46,6 +48,15 @@ function createTasksStore() {
       const byId: Record<string, Task> = {};
       data.forEach((t) => (byId[t.taskId] = t));
       store.set({ loading: false, error: null, list: data, byId });
+
+      // TTS: Initialize with existing tasks on first load, check for new on subsequent loads
+      if (isInitialLoad) {
+        ttsNotificationService.initializeSeenTasks(data);
+        isInitialLoad = false;
+      } else {
+        ttsNotificationService.checkForNewAssignments(data);
+      }
+
       return data;
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
@@ -67,6 +78,12 @@ function createTasksStore() {
       }));
       const byId: Record<string, Task> = {};
       enriched.forEach((t) => (byId[t.taskId] = t));
+
+      // TTS: Check for new assignments after enrichment (when names are available)
+      if (!isInitialLoad) {
+        ttsNotificationService.checkForNewAssignments(enriched);
+      }
+
       return { ...s, list: enriched, byId };
     });
   }
@@ -135,8 +152,6 @@ function createTasksStore() {
       architectName: ''
     };
 
-    console.log(payload.taskId);
-
     addLocal(temp);
 
     try {
@@ -156,6 +171,11 @@ function createTasksStore() {
       // Replace temp with real task
       removeLocal(payload.taskId);
       if (mappedTask) addLocal(mappedTask);
+
+      // TTS: Announce if task has architect assigned
+      if (mappedTask && mappedTask.architectId && mappedTask.architectName) {
+        ttsNotificationService.checkForNewAssignments([mappedTask]);
+      }
 
       return mappedTask;
     } catch (err) {
@@ -182,6 +202,18 @@ function createTasksStore() {
       const updated = json?.data as any;
       const mappedTask = mapApiResponseToTask(updated);
       if (mappedTask) updateLocal(id, mappedTask);
+
+      // TTS: Announce if architect was just assigned (wasn't assigned before)
+      if (
+        mappedTask &&
+        mappedTask.architectId &&
+        mappedTask.architectName &&
+        before &&
+        !before.architectId
+      ) {
+        ttsNotificationService.checkForNewAssignments([mappedTask]);
+      }
+
       return mappedTask;
     } catch (err) {
       if (before) updateLocal(id, before);

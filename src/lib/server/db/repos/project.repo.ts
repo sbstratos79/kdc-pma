@@ -39,21 +39,12 @@ export async function updateProject(
 /** Delete project and cascade to tasks (transactional hard delete) */
 export async function deleteProjectCascade(id: string): Promise<ProjectSelect | null> {
 	return db.transaction(async (tx) => {
-		// simpler: delete subtasks by joining tasks -> subtasks not available directly here, so:
-		const projectTasks = await tx.select().from(tasksTable).where(eq(tasksTable.projectId, id));
-		const taskIds = projectTasks.map((t) => t.id);
-
-		if (taskIds.length > 0) {
-			await tx.delete(subtasksTable).where((s) => s.taskId.in(taskIds));
-			await tx.delete(tasksTable).where((t) => t.taskId.in(taskIds));
-		}
-
 		const deleted = await tx.delete(projects).where(eq(projects.id, id)).returning();
 		return (deleted as any)[0] ?? null;
 	});
 }
 
-/** Convenience: get project + tasks + subtasks + architect names shaped to frontend types */
+/** Convenience: get project + tasks + architect names shaped to frontend types */
 export async function getProjectWithTasks(id: string): Promise<ProjectDTO | null> {
 	const proj = await getProjects(id);
 	if (!proj) return null;

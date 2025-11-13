@@ -10,7 +10,7 @@ type State = {
   byId: Record<string, Architect>;
 };
 
-const fetcher = createFetcher<Architect[]>('/api/architects', 1000 * 60 * 10); // 10min TTL
+const fetcher = createFetcher<Architect[]>('/api/architects', 5000); // 5seconds TTL
 
 function makeInitial(): State {
   return { loading: false, error: null, list: [], byId: {} };

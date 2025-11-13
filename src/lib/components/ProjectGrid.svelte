@@ -1,41 +1,82 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
-	import { Progressbar, AccordionItem, Accordion } from 'flowbite-svelte';
+	import { AccordionItem, Accordion } from 'flowbite-svelte';
 	import { SvelteMap } from 'svelte/reactivity';
 	import EmblaCarousel, { type EmblaCarouselType } from 'embla-carousel';
 	import Autoplay from 'embla-carousel-autoplay';
-	import { getPriorityColor, getStatusColor } from '$lib/utils/colorUtils';
+	import { architectsStore, projectsStore, tasksStore } from '$lib/stores';
+	import { getPriorityColor, getPriorityGradient, getStatusColor } from '$lib/utils/colorUtils';
 	import { formatDate } from '$lib/utils/dateUtils';
-	import { projectData } from '$lib/stores/ptsDataStore';
 
 	let loading = $state(true);
 	let error: string | null = $state(null);
-	const carouselInstances = new SvelteMap();
 
-	onMount(async () => {
-		try {
-			return $projectData;
-		} catch (err) {
-			if (err instanceof Error) {
-				error = err.message;
-			}
-		} finally {
-			loading = false;
-		}
+	// Subscribe to stores
+	let projectsState = $state({ list: [], loading: true, error: null, byId: {} });
+	let tasksState = $state({ list: [], loading: true, error: null, byId: {} });
+	let architectsState = $state({ list: [], loading: true, error: null, byId: {} });
+
+	$effect(() => {
+		const unsubProjects = projectsStore.subscribe((state) => {
+			projectsState = state;
+		});
+		return unsubProjects;
 	});
 
+	$effect(() => {
+		const unsubTasks = tasksStore.subscribe((state) => {
+			tasksState = state;
+		});
+		return unsubTasks;
+	});
+
+	$effect(() => {
+		const unsubArchitects = architectsStore.subscribe((state) => {
+			architectsState = state;
+		});
+		return unsubArchitects;
+	});
+
+	// Build projects with their tasks
+	let projectsWithTasks = $derived.by(() => {
+		const projects = projectsState.list;
+		const tasks = tasksState.list;
+
+		// Group tasks by project
+		const tasksByProject = new SvelteMap<string, typeof tasks>();
+		tasks.forEach((task) => {
+			const projectId = task.projectId;
+			if (!tasksByProject.has(projectId)) {
+				tasksByProject.set(projectId, []);
+			}
+			tasksByProject.get(projectId)!.push(task);
+		});
+
+		// Add tasks to each project
+		const result = projects.map((project) => ({
+			...project,
+			tasks: tasksByProject.get(project.projectId) || []
+		}));
+
+		return result;
+	});
+
+	// Embla instances per project
+	const carouselInstances = new SvelteMap<string, EmblaCarouselType>();
+
 	function initCarousel(node: HTMLElement, projectId: string) {
+		// if no tasks / single task, we still initialize so nav works consistently
 		const embla = EmblaCarousel(
 			node,
 			{
 				loop: true,
-				align: 'start',
+				align: 'center',
 				skipSnaps: false,
 				dragFree: false
 			},
 			[
 				Autoplay({
-					delay: 8000,
+					delay: 4000,
 					stopOnInteraction: false,
 					stopOnMouseEnter: true
 				})
@@ -46,22 +87,77 @@
 
 		return {
 			destroy() {
-				embla.destroy();
+				try {
+					embla.destroy();
+				} catch {}
 				carouselInstances.delete(projectId);
 			}
 		};
 	}
 
-	function navigateCarousel(taskId: string, direction: 'prev' | 'next') {
-		const embla: EmblaCarouselType = carouselInstances.get(taskId) as EmblaCarouselType;
-		if (embla) {
-			if (direction === 'prev') {
-				embla.scrollPrev();
-			} else {
-				embla.scrollNext();
-			}
-		}
+	function navigateCarousel(projectId: string, direction: 'prev' | 'next') {
+		const embla: EmblaCarouselType = carouselInstances.get(projectId) as EmblaCarouselType;
+		if (!embla) return;
+		if (direction === 'prev') embla.scrollPrev();
+		else embla.scrollNext();
 	}
+
+	onMount(async () => {
+		try {
+			loading = true;
+
+			await Promise.all([architectsStore.load(), projectsStore.load(), tasksStore.load()]);
+
+			// Enrich tasks with architect and project names
+			tasksStore.loadWithNames(architectsState.byId, projectsState.byId);
+
+			// Refresh data when window regains focus
+			const handleFocus = async () => {
+				await Promise.all([
+					architectsStore.refresh(),
+					projectsStore.refresh(),
+					tasksStore.refresh()
+				]);
+				// Re-enrich tasks after refresh
+				tasksStore.loadWithNames(architectsState.byId, projectsState.byId);
+			};
+			window.addEventListener('focus', handleFocus);
+
+			// Optional: Auto-refresh every 30 seconds
+			const refreshInterval = setInterval(async () => {
+				await Promise.all([
+					architectsStore.refresh(),
+					projectsStore.refresh(),
+					tasksStore.refresh()
+				]);
+				// Re-enrich tasks after auto-refresh
+				tasksStore.loadWithNames(architectsState.byId, projectsState.byId);
+			}, 30000); // 30 seconds
+
+			// Cleanup
+			return () => {
+				window.removeEventListener('focus', handleFocus);
+				clearInterval(refreshInterval);
+				// destroy any remaining embla instances
+				for (const id of carouselInstances.keys()) {
+					const inst = carouselInstances.get(id);
+					try {
+						inst.destroy();
+					} catch {}
+				}
+				carouselInstances.clear();
+			};
+		} catch (err) {
+			console.error('Error loading data:', err);
+			if (err instanceof Error) {
+				error = err.message;
+			} else {
+				error = 'Unknown error occurred';
+			}
+		} finally {
+			loading = false;
+		}
+	});
 </script>
 
 {#if loading}
@@ -73,182 +169,206 @@
 		<h2 class="mb-2 font-semibold">Error loading data</h2>
 		<p>{error}</p>
 	</div>
-{:else if $projectData.length === 0}
+{:else if projectsWithTasks.length === 0}
 	<div class="rounded-lg border border-yellow-200 bg-yellow-50 p-4 text-yellow-700">
 		<p>No projects found.</p>
 	</div>
 {:else}
-	<div class="columns gap-4 [column-width:350px]">
-		{#each $projectData as project (project.projectId)}
+	<div class="columns gap-2 [column-width:350px]">
+		{#each projectsWithTasks as project (project.projectId)}
 			{#if project}
 				<Accordion
-					class="group mb-4 inline-block w-full
-          	[break-inside:avoid]
-          	[-webkit-column-break-inside:avoid]
-          	[page-break-inside:avoid]"
+					class="group mb-2 inline-block w-full
+          break-inside-avoid
+          [-webkit-column-break-inside:avoid]
+          [page-break-inside:avoid]"
 				>
 					<AccordionItem
-						open
-						inactiveClass="flex h-[50px] rounded-xl flex-row items-center justify-between rounded-t-lg bg-gradient-to-r from-rose-50 to-indigo-100 p-2 text-slate-800"
-						activeClass="flex flex-row h-[50px] items-center justify-between rounded-t-lg bg-gradient-to-r from-rose-50 to-indigo-100 text-slate-800"
-						contentClass="p-2"
+						classes={{
+							inactive:
+								'flex h-[50px] rounded-xl flex-row items-center justify-between rounded-t-lg bg-gradient-to-r from-blue-50 to-purple-100 p-2 text-slate-800',
+							active:
+								'flex flex-row h-[50px] items-center justify-between rounded-t-lg bg-gradient-to-r from-blue-50 to-purple-100 text-slate-800',
+							content: 'p-2'
+						}}
+						open={project.tasks.length > 0}
 					>
 						{#snippet arrowup()}{/snippet}
 						{#snippet arrowdown()}{/snippet}
 						{#snippet header()}
-							<h2 class="truncate text-2xl font-black">
-								{project.projectName || 'Unassigned tasks'}
-							</h2>
-							<p class="text-center text-2xl font-bold text-nowrap text-slate-800">
+							<div class="flex min-w-0 flex-1 items-center gap-2">
+								<div
+									class="min-h-4 min-w-4 shrink-0 rounded-full {getPriorityColor(
+										project.projectPriority
+									)}"
+								></div>
+								<h2 class="truncate text-2xl font-black">
+									{project.projectName}
+								</h2>
+							</div>
+							<p class="ml-2 text-center text-2xl font-bold text-nowrap text-slate-800">
 								{project.tasks.length} task{project.tasks.length !== 1 ? 's' : ''}
 							</p>
 						{/snippet}
-						<!-- Task Carousel -->
-						{#if project.tasks.length > 0}
-							<div class="relative flex flex-1 flex-col">
-								<!-- Carousel Container -->
-								<div class="embla h-full overflow-hidden" use:initCarousel={project.projectId}>
-									<div class="embla__container flex">
-										{#each project.tasks as task (task.taskId)}
-											<div
-												class="embla__slide
-              										max-h-[560px]
-              										min-w-0
-              										flex-[0_0_100%]
-              										overflow-hidden
-              										p-2"
+
+						<!-- Project Content -->
+						<div class="flex flex-col">
+							<!-- Project Details -->
+							<div class="shrink-0">
+								<div class="flex min-w-0 flex-col gap-2">
+									<div class="flex min-w-0 flex-1 items-center gap-2 overflow-hidden">
+										{#if project.projectStatus}
+											<span
+												class="shrink-0 rounded-full border px-2.5 py-0.5 text-sm font-bold whitespace-nowrap lg:text-lg {getStatusColor(
+													project.projectStatus
+												)}"
 											>
-												<!-- Task Card -->
-												<div class="flex h-full flex-col">
-													<!-- Task Header -->
-													<div class="mb-4 flex-shrink-0">
-														{#if task.taskName}
-															<div class="justify-left mb-3 ml-2 flex flex-row items-center gap-2">
-																<div
-																	class="min-h-4 min-w-4 rounded-full {getPriorityColor(
-																		task.taskPriority
-																	)}"
-																></div>
-																<h3
-																	class="truncate text-xl font-semibold text-gray-900 lg:text-2xl"
-																>
-																	{task.taskName}
-																</h3>
-															</div>
-														{/if}
-														<div class="flex min-w-0 flex-col gap-2">
-															<div
-																class="flex
-              															min-w-0
-              															flex-1
-              															items-center
-              															gap-2
-              															overflow-hidden"
-															>
-																{#if task.taskStatus}
-																	<span
-																		class="shrink-0 rounded-full border px-2.5 py-0.5 text-sm font-bold whitespace-nowrap lg:text-lg {getStatusColor(
-																			task.taskStatus
-																		)}"
-																	>
-																		{task.taskStatus}
-																	</span>
-																{/if}
+												{project.projectStatus}
+											</span>
+										{/if}
+									</div>
 
-																{#if task.architectName}
-																	<span
-																		class="min-w-0 flex-shrink truncate overflow-hidden
-          														rounded-full border border-rose-200 bg-rose-100 px-2.5
-          														py-0.5 text-sm font-bold whitespace-nowrap text-rose-800 lg:text-lg
-        														"
+									<div
+										class="mb-2 flex items-center justify-between gap-2 text-lg font-medium text-gray-900 lg:text-xl"
+									>
+										<span>Start: {formatDate(project.projectStartDate)}</span>
+										<span>Due: {formatDate(project.projectDueDate)}</span>
+									</div>
+								</div>
+
+								{#if project.projectDescription}
+									<p class="text-md mt-2 text-gray-600 lg:text-lg">
+										{project.projectDescription}
+									</p>
+								{/if}
+							</div>
+
+							<!-- Tasks Section: Carousel where each task is a slide -->
+							{#if project.tasks.length > 0}
+								<div
+									class="mt-2 flex flex-1 flex-col overflow-hidden border-t border-gray-200 pt-2"
+								>
+									<!-- EMBLA: outer wrapper -->
+									<div class="relative flex flex-1 flex-col">
+										<div
+											class="embla overflow-hidden"
+											use:initCarousel={project.projectId}
+											aria-hidden={project.tasks.length === 0}
+										>
+											<div class="embla__container flex gap-4">
+												{#each project.tasks as task (task.taskId)}
+													<!-- each task => a slide -->
+													<div
+														class="embla__slide
+																min-w-full
+              									shrink
+																overflow-hidden
+              									px-2"
+													>
+														<div
+															class="flex h-full min-h-[100px] w-full flex-col justify-between rounded-2xl border border-neutral-600/20 bg-linear-to-br p-4 duration-200 md:p-5 {getPriorityGradient(
+																task.taskPriority
+															)}"
+														>
+															<div class="flex items-center justify-between gap-2">
+																<div class="min-w-0 flex-1">
+																	<p
+																		class="text-md min-w-0 flex-1 items-center truncate font-medium text-gray-900 lg:text-lg"
 																	>
-																		{task.architectName}
-																	</span>
-																{/if}
+																		{task.taskName}
+																	</p>
+																</div>
+
+																<div class="shrink-0">
+																	{#if task.taskStatus}
+																		<span
+																			class="lg:text-md inline-flex items-center rounded-full border px-2 py-1 text-xs font-medium whitespace-nowrap {getStatusColor(
+																				task.taskStatus
+																			)}"
+																		>
+																			{task.taskStatus}
+																		</span>
+																	{/if}
+																</div>
 															</div>
 
+															{#if task.taskDescription}
+																<p class="lg:text-md mt-2 line-clamp-3 text-sm text-gray-600">
+																	{task.taskDescription}
+																</p>
+															{/if}
+
 															<div
-																class="mb-3 flex items-center justify-between gap-2 text-lg font-medium text-gray-900 lg:text-xl"
+																class="text-md mt-3 flex items-center justify-between gap-2 text-gray-800"
 															>
 																<span>Start: {formatDate(task.taskStartDate)}</span>
 																<span>Due: {formatDate(task.taskDueDate)}</span>
 															</div>
-														</div>
 
-														{#if task.taskDescription}
-															<p class="text-md truncate text-gray-600 lg:text-xl">
-																{task.taskDescription}
-															</p>
-														{/if}
+															<!-- Assigned to (kept) -->
+															<div class="mt-3 border-t border-gray-200 pt-2 md:mt-4 md:pt-3">
+																{#if task.architectName}
+																	<p class="text-md text-gray-700">
+																		Assigned to:
+																		<span class="font-bold text-gray-900">{task.architectName}</span
+																		>
+																	</p>
+																{:else}
+																	<p class="text-xs text-gray-500 italic md:text-sm">Unassigned</p>
+																{/if}
+															</div>
+														</div>
 													</div>
-												</div>
+												{/each}
 											</div>
-										{/each}
+										</div>
+
+										<!-- nav buttons for each project's carousel -->
+										{#if project.tasks.length > 1}
+											<button
+												class="bg-opacity-90 hover:bg-opacity-100 absolute top-1/2 left-2 -translate-y-1/2 transform rounded-full bg-white p-2 text-gray-700 opacity-0 duration-200 group-hover:opacity-100"
+												onclick={() => navigateCarousel(project.projectId, 'prev')}
+												aria-label="Previous task"
+											>
+												<svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+													<path
+														stroke-linecap="round"
+														stroke-linejoin="round"
+														stroke-width="2"
+														d="M15 19l-7-7 7-7"
+													/>
+												</svg>
+											</button>
+
+											<button
+												class="bg-opacity-90 hover:bg-opacity-100 absolute top-1/2 right-2 -translate-y-1/2 transform rounded-full bg-white p-2 text-gray-700 opacity-0 duration-200 group-hover:opacity-100"
+												onclick={() => navigateCarousel(project.projectId, 'next')}
+												aria-label="Next task"
+											>
+												<svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+													<path
+														stroke-linecap="round"
+														stroke-linejoin="round"
+														stroke-width="2"
+														d="M9 5l7 7-7 7"
+													/>
+												</svg>
+											</button>
+										{/if}
 									</div>
 								</div>
-
-								<!-- Navigation Buttons -->
-								{#if project.tasks.length > 1}
-									<button
-										class="bg-opacity-80 hover:bg-opacity-100 absolute top-1/2 left-2 -translate-y-1/2 transform
-										rounded-full bg-white p-2 text-gray-700 opacity-0 shadow-lg transition-all duration-200 group-hover:opacity-100"
-										onclick={() => navigateCarousel(project.projectId, 'prev')}
-										aria-label="Previous task"
-									>
-										<svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-											<path
-												stroke-linecap="round"
-												stroke-linejoin="round"
-												stroke-width="2"
-												d="M15 19l-7-7 7-7"
-											/>
-										</svg>
-									</button>
-
-									<button
-										class="bg-opacity-80 hover:bg-opacity-100 absolute top-1/2 right-2 -translate-y-1/2 transform
-										rounded-full bg-white p-2 text-gray-700 opacity-0 shadow-lg transition-all duration-200 group-hover:opacity-100"
-										onclick={() => navigateCarousel(project.projectId, 'next')}
-										aria-label="Next task"
-									>
-										<svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-											<path
-												stroke-linecap="round"
-												stroke-linejoin="round"
-												stroke-width="2"
-												d="M9 5l7 7-7 7"
-											/>
-										</svg>
-									</button>
-								{/if}
-							</div>
-						{:else}
-							<div class="flex flex-1 items-center justify-center p-6">
-								<p class="text-center text-gray-500">No tasks assigned</p>
-							</div>
-						{/if}
-
-						{#if project.tasks.length != 0}
-							<Progressbar
-								progress={Math.round(
-									(project.tasks
-										.filter((task) => task.taskStatus !== 'Cancelled')
-										.filter((task) => task.taskStatus === 'Completed').length /
-										project.tasks.filter((task) => task.taskStatus !== 'Cancelled').length) *
-										100
-								)}
-								size="h-1.5"
-								classes={{ labelInsideDiv: 'bg-gradient-to-r from-emerald-400 to-emerald-500' }}
-							/>
-						{/if}
-					</AccordionItem></Accordion
-				>
+							{:else}
+								<div class="flex flex-1 items-center justify-center p-6">
+									<p class="text-center text-gray-500">No tasks assigned to this project</p>
+								</div>
+							{/if}
+						</div>
+					</AccordionItem>
+				</Accordion>
 			{/if}
 		{/each}
 	</div>
 {/if}
-
-<!-- {/if} -->
 
 <style>
 	/* Custom scrollbar for subtasks */
@@ -267,6 +387,14 @@
 	}
 
 	.overflow-y-auto::-webkit-scrollbar-thumb:hover {
-		background: #94a3b8;
+		background: #cbd5f9;
+	}
+
+	/* clamp helper same as carousel */
+	.line-clamp-3 {
+		display: -webkit-box;
+		-webkit-line-clamp: 3;
+		-webkit-box-orient: vertical;
+		overflow: hidden;
 	}
 </style>

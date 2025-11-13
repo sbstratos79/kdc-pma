@@ -4,21 +4,109 @@
 	import { SvelteMap } from 'svelte/reactivity';
 	import EmblaCarousel, { type EmblaCarouselType } from 'embla-carousel';
 	import Autoplay from 'embla-carousel-autoplay';
-	import { architectProjectData } from '$lib/stores/ptsDataStore';
-	import { getPriorityColor, getStatusColor } from '$lib/utils/colorUtils';
+	import { architectsStore, projectsStore, tasksStore } from '$lib/stores';
+	import { getPriorityColor, getPriorityGradient, getStatusColor } from '$lib/utils/colorUtils';
 	import { formatDate } from '$lib/utils/dateUtils';
-	// import type { Architect } from '$lib/types';
 
 	let loading = $state(true);
 	let error: string | null = $state(null);
 	const carouselInstances = new SvelteMap();
 
+	// Subscribe to stores
+	let architectsState = $state({ list: [], loading: true, error: null });
+	let projectsState = $state({ list: [], loading: true, error: null });
+	let tasksState = $state({ list: [], loading: true, error: null });
+
+	$effect(() => {
+		const unsubArchitects = architectsStore.subscribe((state) => {
+			architectsState = state;
+		});
+		return unsubArchitects;
+	});
+
+	$effect(() => {
+		const unsubProjects = projectsStore.subscribe((state) => {
+			projectsState = state;
+		});
+		return unsubProjects;
+	});
+
+	$effect(() => {
+		const unsubTasks = tasksStore.subscribe((state) => {
+			tasksState = state;
+		});
+		return unsubTasks;
+	});
+
+	// Build hierarchical data structure
+	let architectProjectData = $derived.by(() => {
+		const architects = architectsState.list;
+		const projects = projectsState.list;
+		const tasks = tasksState.list;
+
+		// Group tasks by project
+		const tasksByProject = new SvelteMap<string, typeof tasks>();
+		tasks.forEach((task) => {
+			const projectId = task.projectId;
+			if (!tasksByProject.has(projectId)) {
+				tasksByProject.set(projectId, []);
+			}
+			tasksByProject.get(projectId)!.push(task);
+		});
+
+		// Group projects by architect
+		const projectsByArchitect = new SvelteMap<string, typeof projects>();
+		projects.forEach((project) => {
+			// Find tasks for this project to determine architect
+			const projectTasks = tasksByProject.get(project.projectId) || [];
+			projectTasks.forEach((task) => {
+				const architectId = task.architectId;
+				if (architectId) {
+					if (!projectsByArchitect.has(architectId)) {
+						projectsByArchitect.set(architectId, []);
+					}
+					// Only add project once per architect
+					const existingProjects = projectsByArchitect.get(architectId)!;
+					if (!existingProjects.find((p) => p.projectId === project.projectId)) {
+						existingProjects.push({
+							...project,
+							tasks: projectTasks.filter((t) => t.architectId === architectId)
+						});
+					}
+				}
+			});
+		});
+
+		// Build final structure
+		const result = architects.map((architect) => ({
+			architectId: architect.architectId,
+			firstName: architect.architectName.split(' ')[0] || '',
+			lastName: architect.architectName.split(' ').slice(1).join(' ') || '',
+			architectName: architect.architectName,
+			projects: (projectsByArchitect.get(architect.architectId) || []).map((project) => ({
+				...project,
+				tasks: project.tasks || []
+			})),
+			tasks: architect.tasks
+		}));
+
+		return result;
+	});
+
 	onMount(async () => {
 		try {
-			return $architectProjectData;
+			loading = true;
+
+			await Promise.all([architectsStore.load(), projectsStore.load(), tasksStore.load()]);
+
+			// Load tasks with names
+			tasksStore.loadWithNames(architectsState.byId, projectsState.byId);
 		} catch (err) {
+			console.error('Error loading data:', err);
 			if (err instanceof Error) {
 				error = err.message;
+			} else {
+				error = 'Unknown error occurred';
 			}
 		} finally {
 			loading = false;
@@ -30,7 +118,7 @@
 			node,
 			{
 				loop: true,
-				align: 'start',
+				align: 'center',
 				skipSnaps: false,
 				dragFree: false
 			},
@@ -74,25 +162,29 @@
 		<h2 class="mb-2 font-semibold">Error loading data</h2>
 		<p>{error}</p>
 	</div>
-{:else if $architectProjectData.length === 0}
+{:else if architectProjectData.length === 0}
 	<div class="rounded-lg border border-yellow-200 bg-yellow-50 p-4 text-yellow-700">
 		<p>No architects found.</p>
 	</div>
 {:else}
-	<div class="columns gap-4 [column-width:350px]">
-		{#each $architectProjectData as architect (architect.architectId)}
+	<div class="columns gap-2 [column-width:350px]">
+		{#each architectProjectData as architect (architect.architectId)}
 			{#if architect}
 				<Accordion
-					class="group mb-4 inline-block w-full
-          [break-inside:avoid]
+					class="group mb-2 inline-block w-full
+          break-inside-avoid
           [-webkit-column-break-inside:avoid]
           [page-break-inside:avoid]"
 				>
 					<AccordionItem
-						open
-						inactiveClass="flex h-[50px] rounded-xl flex-row items-center justify-between rounded-t-lg bg-gradient-to-r from-rose-50 to-indigo-100 p-2 text-slate-800"
-						activeClass="flex flex-row h-[50px] items-center justify-between rounded-t-lg bg-gradient-to-r from-rose-50 to-indigo-100 text-slate-800"
-						contentClass="p-2"
+						classes={{
+							active:
+								'flex h-[50px] flex-row items-center justify-between rounded-t-lg bg-gradient-to-r from-rose-50 to-indigo-100 text-slate-800',
+							inactive:
+								'flex h-[50px] flex-row items-center justify-between rounded-t-lg bg-gradient-to-r from-rose-50 to-indigo-100 text-slate-800',
+							content: 'p-2'
+						}}
+						open={architect.projects.length > 0}
 					>
 						{#snippet arrowup()}{/snippet}
 						{#snippet arrowdown()}{/snippet}
@@ -114,26 +206,26 @@
 									class="embla max-h-[540px] overflow-hidden"
 									use:initCarousel={architect.architectId}
 								>
-									<div class="embla__container flex max-h-[560px]">
+									<div class="embla__container flex gap-4">
 										{#each architect.projects as project (project.projectId)}
 											<div
 												class="embla__slide
-              									max-h-[560px]
-              									min-w-0
-              									flex-[0_0_100%]
+              									max-h-[360px]
+              									min-w-full
+              									shrink
               									overflow-hidden
-              									p-2"
+              									"
 											>
 												<!-- Project Card -->
 												<div class="flex h-full flex-col">
 													<!-- Task Header -->
-													<div class="mb-4 flex-shrink-0">
+													<div class="shrink-0">
 														{#if project.projectName}
 															<div
-																class="justify-left mb-3 ml-2 flex w-full flex-row items-center gap-2"
+																class="justify-left mb-3 flex w-full flex-row items-center gap-2"
 															>
 																<div
-																	class="min-h-4 min-w-4 rounded-full {getPriorityColor(
+																	class="min-h-4 min-w-4 shrink-0 rounded-full {getPriorityColor(
 																		project.projectPriority
 																	)}"
 																></div>
@@ -165,7 +257,7 @@
 															</div>
 
 															<div
-																class="mb-3 flex items-center justify-between gap-2 text-lg font-medium text-gray-900 lg:text-xl"
+																class="mb-2 flex items-center justify-between gap-2 text-lg font-medium text-gray-900 lg:text-xl"
 															>
 																<span>Start: {formatDate(project.projectStartDate)}</span>
 																<span>Due: {formatDate(project.projectDueDate)}</span>
@@ -179,31 +271,29 @@
 														{/if}
 													</div>
 													<!-- Tasks -->
-													{#if project.tasks.length > 0}
-														<div class="flex flex-1 flex-col overflow-hidden border-t pt-4">
+													{#if project.tasks && project.tasks.length > 0}
+														<div
+															class="mt-2 flex flex-1 flex-col overflow-hidden border-t border-gray-200 pt-2 pl-2"
+														>
 															<h4
-																class="mb-3 flex-shrink-0 text-lg font-medium text-gray-900 lg:text-xl"
+																class="mb-3 shrink-0 text-lg font-medium text-gray-900 lg:text-xl"
 															>
 																Tasks ({project.tasks.length})
 															</h4>
-															<div
-																class="space-y-2 overflow-y-auto pr-2"
-																style="height: calc(100% - 1rem);"
-															>
+															<div class="space-y-2 overflow-y-auto pr-2">
 																{#each project.tasks as task (task.taskId)}
-																	<div class="flex-shrink-0 rounded-lg bg-gray-50 p-3">
-																		<div class="flex items-center justify-between">
+																	<div
+																		class="flex max-h-[140px] w-full shrink-0 flex-col rounded-2xl border border-neutral-600/20 bg-linear-to-br p-2 duration-200 md:p-3 {getPriorityGradient(
+																			task.taskPriority
+																		)}"
+																	>
+																		<div class="flex items-center justify-between gap-2">
 																			<div class="min-w-0 flex-1">
 																				<p
 																					class="text-md truncate font-medium text-gray-900 lg:text-lg"
 																				>
 																					{task.taskName}
 																				</p>
-																				{#if task.taskDescription}
-																					<p class="lg:text-md mt-1 truncate text-sm text-gray-600">
-																						{task.taskDescription}
-																					</p>
-																				{/if}
 																			</div>
 																			{#if task.taskStatus}
 																				<span
@@ -215,6 +305,12 @@
 																				</span>
 																			{/if}
 																		</div>
+
+																		{#if task.taskDescription}
+																			<p class="lg:text-md mt-2 line-clamp-3 text-sm text-gray-600">
+																				{task.taskDescription}
+																			</p>
+																		{/if}
 																	</div>
 																{/each}
 															</div>
@@ -263,7 +359,7 @@
 							</div>
 						{:else}
 							<div class="flex flex-1 items-center justify-center p-6">
-								<p class="text-center text-gray-500">No tasks assigned</p>
+								<p class="text-center text-gray-500">No projects assigned</p>
 							</div>
 						{/if}
 					</AccordionItem></Accordion
@@ -272,8 +368,6 @@
 		{/each}
 	</div>
 {/if}
-
-<!-- {/if} -->
 
 <style>
 	/* Custom scrollbar for subtasks */
@@ -293,5 +387,13 @@
 
 	.overflow-y-auto::-webkit-scrollbar-thumb:hover {
 		background: #cbd5f9;
+	}
+
+	/* clamp helper same as carousel */
+	.line-clamp-3 {
+		display: -webkit-box;
+		-webkit-line-clamp: 3;
+		-webkit-box-orient: vertical;
+		overflow: hidden;
 	}
 </style>

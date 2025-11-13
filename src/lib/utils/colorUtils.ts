@@ -20,12 +20,25 @@ export function getPriorityColor(priority: string | null): string {
   const priorityLower = priority;
   switch (priorityLower) {
     case 'High':
-      return 'bg-red-500';
+      return 'bg-red-400 text-black font-bold border-red-900';
     case 'Medium':
-      return 'bg-yellow-500';
+      return 'bg-yellow-500 text-black font-bold border-red-900';
     case 'Low':
-      return 'bg-green-500';
+      return 'bg-green-500 text-black font-bold border-red-900';
     default:
-      return 'bg-gray-500';
+      return 'bg-gray-500 text-black font-bold border-red-900';
+  }
+}
+
+export function getPriorityGradient(priority: string) {
+  switch (priority?.toLowerCase()) {
+    case 'high':
+      return 'from-red-200/100 to-white';
+    case 'medium':
+      return 'from-yellow-200/70 to-white';
+    case 'low':
+      return 'from-green-200/70 to-white';
+    default:
+      return 'from-gray-50/50 to-white';
   }
 }
