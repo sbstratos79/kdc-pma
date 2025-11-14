@@ -29,6 +29,7 @@ function ensureTaskDto(t: any): Task {
 		taskName: t.taskName ?? '',
 		taskDescription: t.taskDescription ?? null,
 		taskStartDate: t.taskStartDate ?? null,
+		addedTime: t.addedtime ?? null,
 		taskDueDate: t.taskDueDate ?? null,
 		taskStatus: t.taskStatus ?? '',
 		taskPriority: t.taskPriority ?? '',

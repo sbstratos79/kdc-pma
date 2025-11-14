@@ -8,6 +8,7 @@ export interface Task {
 	taskDescription: string | null;
 	taskStartDate: string | null;
 	taskDueDate: string | null;
+	addedTime: string | null;
 	taskStatus: string;
 	taskPriority: string;
 	projectId: string;
@@ -20,6 +21,7 @@ export interface Project {
 	projectDescription: string | null;
 	projectStartDate: string | null;
 	projectDueDate: string | null;
+	addedTime: string | null;
 	projectStatus: string;
 	projectPriority: string;
 	tasks: Task[];

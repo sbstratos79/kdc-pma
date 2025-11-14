@@ -38,6 +38,9 @@ export const projects = sqliteTable(
 		description: text(),
 		startDate: text('start_date'),
 		dueDate: text('due_date'),
+		addedTime: text('added_time')
+			.notNull()
+			.default(sql`CURRENT_TIMESTAMP`),
 		status: text().notNull(),
 		priority: text().notNull()
 	},
@@ -55,6 +58,9 @@ export const tasks = sqliteTable(
 		description: text(),
 		startDate: text('start_date'),
 		dueDate: text('due_date'),
+		addedTime: text('added_time')
+			.notNull()
+			.default(sql`CURRENT_TIMESTAMP`),
 		status: text().notNull(),
 		priority: text().notNull(),
 		architectId: text('architect_id').references(() => architects.id, {

@@ -73,6 +73,7 @@ export async function getTask(id: string): Promise<TaskDTO | null> {
 		taskStartDate: t.startDate ?? null,
 		taskDueDate: t.dueDate ?? null,
 		taskStatus: t.status,
+		addedTime: null,
 		taskPriority: t.priority,
 		projectId: t.projectId,
 		projectName: proj?.name ?? ''
