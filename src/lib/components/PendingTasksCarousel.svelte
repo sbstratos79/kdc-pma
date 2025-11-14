@@ -1,17 +1,14 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
-	import { SvelteMap } from 'svelte/reactivity';
-	import EmblaCarousel, { type EmblaCarouselType } from 'embla-carousel';
-	import Autoplay from 'embla-carousel-autoplay';
-	import { getPriorityColor, getPriorityGradient, getStatusColor } from '$lib/utils/colorUtils';
-	import { formatDate } from '$lib/utils/dateUtils';
+	import { Carousel } from '@ark-ui/svelte/carousel';
+	import { getPriorityGradient, getStatusColor } from '$lib/utils/colorUtils';
 
 	// same stores / pattern used in your other components
 	import { architectsStore, projectsStore, tasksStore } from '$lib/stores';
+	import { SvelteDate } from 'svelte/reactivity';
 
 	let loading = $state(true);
 	let error: string | null = $state(null);
-	const carouselInstances = new SvelteMap();
 
 	// Local copies of store state - added byId for enrichment
 	let architectsState = $state({ list: [], loading: true, error: null, byId: {} });
@@ -40,7 +37,7 @@
 	// Derived: today's pending tasks (due today and not Completed/Cancelled)
 	let todaysPendingTasks = $derived.by(() => {
 		const tasks = tasksState.list || [];
-		const today = new Date();
+		const today = new SvelteDate();
 		today.setHours(0, 0, 0, 0);
 
 		return tasks.filter((task) => {
@@ -69,59 +66,23 @@
 	let slideWidth = $state(280);
 	const SLIDE_MAX_WIDTH_PX = 540;
 
-	function initCarousel(node: HTMLElement, carouselId: string) {
-		// initialize only if there are slides
-		if (!todaysPendingTasks || todaysPendingTasks.length === 0) return;
-
-		const embla = EmblaCarousel(
-			node,
-			{
-				loop: true,
-				align: 'start',
-				skipSnaps: false,
-				dragFree: false
-			},
-			[
-				Autoplay({
-					delay: 4000,
-					stopOnInteraction: false,
-					stopOnMouseEnter: true
-				})
-			]
-		);
-
-		carouselInstances.set(carouselId, embla);
-
-		return {
-			destroy() {
-				try {
-					embla.destroy();
-				} catch {}
-				carouselInstances.delete(carouselId);
-			}
-		};
-	}
-
-	function navigateCarousel(carouselId: string, direction: 'prev' | 'next') {
-		const embla: EmblaCarouselType = carouselInstances.get(carouselId) as EmblaCarouselType;
-		if (!embla) return;
-		if (direction === 'prev') embla.scrollPrev();
-		else embla.scrollNext();
-	}
+	// Reactive state for slides per page based on screen size
+	let slidesPerPage = $state(1);
 
 	onMount(async () => {
 		try {
 			loading = true;
 
-			// Set initial slide width
-			slideWidth = getSlideWidth();
-
-			// Update slide width on window resize
-			const handleResize = () => {
-				slideWidth = getSlideWidth();
+			const updateSlidesPerPage = () => {
+				const width = window.innerWidth;
+				slidesPerPage = width / 360;
 			};
-			window.addEventListener('resize', handleResize);
 
+			// Set initial value
+			updateSlidesPerPage();
+
+			// Update on resize
+			window.addEventListener('resize', updateSlidesPerPage);
 			await Promise.all([architectsStore.load(), projectsStore.load(), tasksStore.load()]);
 
 			// CRITICAL: enrich tasks with names
@@ -152,8 +113,7 @@
 
 			// Cleanup
 			return () => {
-				window.removeEventListener('focus', handleFocus);
-				window.removeEventListener('resize', handleResize);
+				window.removeEventListener('resize', updateSlidesPerPage);
 				clearInterval(refreshInterval);
 			};
 		} catch (err) {
@@ -190,108 +150,126 @@
 					[page-break-inside:avoid]"
 	>
 		<div class="relative flex w-full flex-1 flex-col">
-			<!-- EMBLA: full-width wrapper (stretches to available width) -->
-			<div class="embla w-full overflow-visible" use:initCarousel={'pending-tasks'}>
-				<!-- embla__container is a horizontal row; slides are fixed-width tiles -->
-				<div class="embla__container flex items-stretch gap-2 px-2 py-2 md:gap-4 md:px-4">
-					{#each todaysPendingTasks as task (task.taskId)}
-						<!-- slide: responsive fixed width -->
-						<div
-							class="embla__slide shrink-0"
-							style="flex: 0 0 {slideWidth}px; width: {slideWidth}px; max-width: {SLIDE_MAX_WIDTH_PX}px;"
+			<Carousel.Root
+				defaultPage={0}
+				slideCount={todaysPendingTasks.length}
+				autoplay={{ delay: 5000 }}
+				loop
+				allowMouseDrag
+				spacing="4px"
+				class="group/carousel relative"
+				padding="40px"
+				{slidesPerPage}
+			>
+				<Carousel.Context>
+					{#snippet render(api)}
+						<Carousel.ItemGroup
+							onpointerover={() => api().pause()}
+							onpointerleave={() => api().play()}
 						>
-							<!-- Task Card with gradient and shadow -->
-							<div
-								class="flex h-full min-h-[120px] flex-col rounded-2xl border border-neutral-600/20 bg-linear-to-br md:min-h-[200px] md:rounded-3xl {getPriorityGradient(
-									task.taskPriority
-								)} p-4 shadow-lg transition-shadow duration-200 hover:shadow-xl md:p-5"
-							>
-								<!-- Header with priority dot and title -->
-								<div class="mb-2 flex items-center gap-2 md:mb-3 md:gap-3">
-									<h3 class="truncate text-base font-bold text-gray-900 sm:text-lg md:text-xl">
-										{task.taskName}
-									</h3>
-								</div>
+							{#each todaysPendingTasks as task, index (task.taskId)}
+								<!-- slide: responsive fixed width -->
+								<Carousel.Item {index} class="max-h-50 max-w-90 py-2">
+									<div
+										class="flex h-full flex-col rounded-2xl border border-neutral-600/20 bg-linear-to-br md:rounded-3xl {getPriorityGradient(
+											task.taskPriority
+										)} px-2 py-1 shadow-md transition-shadow duration-200 hover:shadow-lg md:px-3 md:py-2"
+									>
+										<!-- Header with priority dot and title -->
+										<div class="flex items-center gap-2 md:gap-3">
+											<h3 class="truncate text-base font-bold text-gray-900 sm:text-lg md:text-xl">
+												{task.taskName}
+											</h3>
+										</div>
 
-								<!-- Status and Project badges -->
-								<div class="mb-2 flex flex-wrap items-center gap-2 md:mb-3">
-									{#if task.taskStatus}
-										<span
-											class="rounded-full border px-2 py-0.5 text-xs font-semibold whitespace-nowrap md:px-3 md:py-1 md:text-sm {getStatusColor(
-												task.taskStatus
-											)}"
-										>
-											{task.taskStatus}
-										</span>
-									{/if}
-									{#if task.projectName}
-										<span
-											class="truncate rounded-full border border-purple-200 bg-purple-100 px-2 py-0.5 text-xs font-semibold text-purple-800 md:px-3 md:py-1 md:text-sm"
-										>
-											{task.projectName}
-										</span>
-									{/if}
-								</div>
+										<!-- Status and Project badges -->
+										<div class="flex flex-wrap items-center gap-2">
+											{#if task.taskStatus}
+												<span
+													class="rounded-full border px-2 py-0.5 text-xs font-semibold whitespace-nowrap md:px-3 md:py-1 md:text-sm {getStatusColor(
+														task.taskStatus
+													)}"
+												>
+													{task.taskStatus}
+												</span>
+											{/if}
+											{#if task.projectName}
+												<span
+													class="truncate rounded-full border border-purple-200 bg-purple-100 px-2 py-0.5 text-xs font-semibold text-purple-800 md:px-3 md:py-1 md:text-sm"
+												>
+													{task.projectName}
+												</span>
+											{/if}
+										</div>
 
-								<!-- Description - flexible space -->
-								<div class="flex-1">
-									{#if task.taskDescription}
-										<p class="line-clamp-3 text-xs text-gray-600 sm:text-sm md:text-base">
-											{task.taskDescription}
-										</p>
-									{/if}
-								</div>
+										<!-- Description - flexible space -->
+										<div class="my-2 flex-1">
+											{#if task.taskDescription}
+												<p class="line-clamp-3 text-xs text-gray-600 sm:text-sm md:text-base">
+													{task.taskDescription}
+												</p>
+											{/if}
+										</div>
 
-								<!-- Assigned to text - pinned to bottom -->
-								<div class="mt-3 border-t border-gray-200 pt-2 sm:mt-4 sm:pt-3">
-									{#if task.architectName}
-										<p class="text-xl text-gray-700">
-											Assigned to: <span class="font-bold text-gray-900">{task.architectName}</span>
-										</p>
-									{:else}
-										<p class="text-xs text-gray-500 italic sm:text-sm">Unassigned</p>
-									{/if}
-								</div>
-							</div>
-						</div>
-					{/each}
-				</div>
-			</div>
-
-			<!-- Navigation Buttons (controls the single embla instance) -->
-			{#if todaysPendingTasks.length > 1}
-				<button
-					class="bg-opacity-90 hover:bg-opacity-100 absolute top-1/2 left-1 -translate-y-1/2 transform rounded-full
-									bg-white p-2 text-gray-700 opacity-0 shadow-lg transition-all duration-200 group-hover:opacity-100 sm:left-3 sm:p-3"
-					onclick={() => navigateCarousel('pending-tasks', 'prev')}
-					aria-label="Previous task"
-				>
-					<svg class="h-5 w-5 sm:h-6 sm:w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-						<path
+										<!-- Assigned to text - pinned to bottom -->
+										<div class="border-t border-gray-200 pt-2">
+											{#if task.architectName}
+												<p class="text-xl text-gray-700">
+													Assigned to: <span class="font-bold text-gray-900"
+														>{task.architectName}</span
+													>
+												</p>
+											{:else}
+												<p class="text-xs text-gray-500 italic sm:text-sm">Unassigned</p>
+											{/if}
+										</div>
+									</div>
+								</Carousel.Item>
+							{/each}
+						</Carousel.ItemGroup>
+					{/snippet}
+				</Carousel.Context>
+				<!-- Navigation Controls - Show on Hover -->
+				<Carousel.Control class="pointer-events-none absolute inset-0">
+					<Carousel.PrevTrigger
+						class="pointer-events-auto absolute top-1/2 left-2 -translate-y-1/2 rounded-full bg-white/90 p-2 opacity-0 shadow-lg transition-opacity duration-200 group-hover/carousel:opacity-100 hover:scale-110 hover:bg-white disabled:cursor-not-allowed disabled:opacity-50"
+					>
+						<svg
+							xmlns="http://www.w3.org/2000/svg"
+							width="24"
+							height="24"
+							viewBox="0 0 24 24"
+							fill="none"
+							stroke="currentColor"
+							stroke-width="2"
 							stroke-linecap="round"
 							stroke-linejoin="round"
-							stroke-width="2"
-							d="M15 19l-7-7 7-7"
-						/>
-					</svg>
-				</button>
+							class="text-gray-800"
+						>
+							<path d="m15 18-6-6 6-6" />
+						</svg>
+					</Carousel.PrevTrigger>
 
-				<button
-					class="bg-opacity-90 hover:bg-opacity-100 absolute top-1/2 right-1 -translate-y-1/2 transform rounded-full
-									bg-white p-2 text-gray-700 opacity-0 shadow-lg transition-all duration-200 group-hover:opacity-100 sm:right-3 sm:p-3"
-					onclick={() => navigateCarousel('pending-tasks', 'next')}
-					aria-label="Next task"
-				>
-					<svg class="h-5 w-5 sm:h-6 sm:w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-						<path
+					<Carousel.NextTrigger
+						class="pointer-events-auto absolute top-1/2 right-2 -translate-y-1/2 rounded-full bg-white/90 p-2 opacity-0 shadow-lg transition-opacity duration-200 group-hover/carousel:opacity-100 hover:scale-110 hover:bg-white disabled:cursor-not-allowed disabled:opacity-50"
+					>
+						<svg
+							xmlns="http://www.w3.org/2000/svg"
+							width="24"
+							height="24"
+							viewBox="0 0 24 24"
+							fill="none"
+							stroke="currentColor"
+							stroke-width="2"
 							stroke-linecap="round"
 							stroke-linejoin="round"
-							stroke-width="2"
-							d="M9 5l7 7-7 7"
-						/>
-					</svg>
-				</button>
-			{/if}
+							class="text-gray-800"
+						>
+							<path d="m9 18 6-6-6-6" />
+						</svg>
+					</Carousel.NextTrigger>
+				</Carousel.Control>
+			</Carousel.Root>
 		</div>
 	</div>
 {/if}
