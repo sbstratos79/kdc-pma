@@ -1,32 +1,48 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
-	import { ttsNotificationService, type KokoroVoice } from '$lib/services/ttsNotificationService';
+	import {
+		ttsNotificationService,
+		type ServerTTSVoice
+	} from '$lib/services/ttsNotificationService';
 
 	let ttsEnabled = $state(true);
 	let ttsAvailable = $state(false);
-	let engine = $state<'browser' | 'kokoro'>('browser');
-	let speed = $state(0.9);
+	let engine = $state<'browser' | 'server'>('browser');
+	let speed = $state(1.0);
 
 	// Browser TTS
 	let browserVoices = $state<SpeechSynthesisVoice[]>([]);
 	let selectedBrowserVoice = $state<string>('');
 
-	// Kokoro TTS
-	let kokoroVoice = $state<KokoroVoice>('af_bella');
+	// Server TTS (Edge TTS)
+	let serverVoice = $state<ServerTTSVoice>('en-IN-PrabhatNeural');
 
-	const kokoroVoices: Array<{ value: KokoroVoice; label: string; gender: string }> = [
-		{ value: 'af_bella', label: 'Bella (Female, American)', gender: 'Female' },
-		{ value: 'af_sarah', label: 'Sarah (Female, American)', gender: 'Female' },
-		{ value: 'am_adam', label: 'Adam (Male, American)', gender: 'Male' },
-		{ value: 'am_michael', label: 'Michael (Male, American)', gender: 'Male' },
-		{ value: 'bf_emma', label: 'Emma (Female, British)', gender: 'Female' },
-		{ value: 'bf_isabella', label: 'Isabella (Female, British)', gender: 'Female' },
-		{ value: 'bm_george', label: 'George (Male, British)', gender: 'Male' },
-		{ value: 'bm_lewis', label: 'Lewis (Male, British)', gender: 'Male' },
-		{ value: 'hf_alpha', label: 'Alpha (Female, Indian)', gender: 'Female' },
-		{ value: 'hf_beta', label: 'Beta (Female, Indian)', gender: 'Female' },
-		{ value: 'hm_omega', label: 'Omega (Male, Indian)', gender: 'Male' },
-		{ value: 'hm_psi', label: 'Psi (Male, Indian)', gender: 'Male' }
+	const serverVoices: Array<{
+		value: ServerTTSVoice;
+		label: string;
+		region: string;
+		gender: string;
+	}> = [
+		{ value: 'en-US-AriaNeural', label: 'Aria (US Female)', region: 'US', gender: 'Female' },
+		{ value: 'en-US-JennyNeural', label: 'Jenny (US Female)', region: 'US', gender: 'Female' },
+		{
+			value: 'en-US-ChristopherNeural',
+			label: 'Christopher (US Male)',
+			region: 'US',
+			gender: 'Male'
+		},
+		{ value: 'en-US-EricNeural', label: 'Eric (US Male)', region: 'US', gender: 'Male' },
+		{ value: 'en-GB-LibbyNeural', label: 'Libby (UK Female)', region: 'UK', gender: 'Female' },
+		{ value: 'en-GB-MaisieNeural', label: 'Maisie (UK Female)', region: 'UK', gender: 'Female' },
+		{ value: 'en-GB-RyanNeural', label: 'Ryan (UK Male)', region: 'UK', gender: 'Male' },
+		{ value: 'en-GB-ThomasNeural', label: 'Thomas (UK Male)', region: 'UK', gender: 'Male' },
+		{
+			value: 'en-IN-NeerjaNeural',
+			label: 'Neerja (India Female)',
+			region: 'India',
+			gender: 'Female'
+		},
+		{ value: 'en-IN-PrabhatNeural', label: 'Prabhat (India Male)', region: 'India', gender: 'Male' }
 	];
 
 	onMount(() => {
@@ -37,7 +53,7 @@
 		ttsEnabled = settings.enabled;
 		engine = settings.engine;
 		speed = settings.speed;
-		kokoroVoice = settings.kokoroVoice;
+		serverVoice = settings.serverVoice;
 
 		// Load browser voices
 		if (engine === 'browser') {
@@ -53,7 +69,7 @@
 		ttsNotificationService.setEnabled(ttsEnabled);
 	}
 
-	function handleEngineChange(newEngine: 'browser' | 'kokoro') {
+	function handleEngineChange(newEngine: 'browser' | 'server') {
 		engine = newEngine;
 		ttsNotificationService.updateSettings({ engine: newEngine });
 
@@ -77,10 +93,10 @@
 		ttsNotificationService.updateSettings({ browserVoice: target.value });
 	}
 
-	function handleKokoroVoiceChange(event: Event) {
+	function handleServerVoiceChange(event: Event) {
 		const target = event.target as HTMLSelectElement;
-		kokoroVoice = target.value as KokoroVoice;
-		ttsNotificationService.updateSettings({ kokoroVoice: target.value as KokoroVoice });
+		serverVoice = target.value as ServerTTSVoice;
+		ttsNotificationService.updateSettings({ serverVoice: target.value as ServerTTSVoice });
 	}
 
 	async function testTTS() {
@@ -145,13 +161,13 @@
 						Browser TTS
 					</button>
 					<button
-						onclick={() => handleEngineChange('kokoro')}
+						onclick={() => handleEngineChange('server')}
 						class="flex-1 rounded-md border px-4 py-2 text-sm font-medium transition-colors {engine ===
-						'kokoro'
+						'server'
 							? 'border-blue-600 bg-blue-50 text-blue-700'
 							: 'border-gray-300 bg-white text-gray-700 hover:bg-gray-50'}"
 					>
-						Kokoro TTS
+						Server TTS
 					</button>
 				</div>
 			</div>
@@ -200,25 +216,25 @@
 						{/if}
 					</select>
 				</div>
-			{:else if engine === 'kokoro'}
+			{:else if engine === 'server'}
 				<div>
-					<label for="kokoro-voice" class="mb-2 block text-sm font-medium text-gray-700">
-						Kokoro Voice
+					<label for="server-voice" class="mb-2 block text-sm font-medium text-gray-700">
+						Server Voice (Edge TTS)
 					</label>
 					<select
-						id="kokoro-voice"
-						value={kokoroVoice}
-						onchange={handleKokoroVoiceChange}
+						id="server-voice"
+						value={serverVoice}
+						onchange={handleServerVoiceChange}
 						class="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500 focus:outline-none"
 					>
-						{#each kokoroVoices as voice}
+						{#each serverVoices as voice}
 							<option value={voice.value}>
 								{voice.label}
 							</option>
 						{/each}
 					</select>
 					<p class="mt-2 text-xs text-gray-500">
-						Note: Kokoro TTS requires a backend service running
+						Note: Server TTS requires Edge TTS service running on localhost:5050
 					</p>
 				</div>
 			{/if}

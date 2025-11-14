@@ -1,330 +1,371 @@
 // src/lib/services/ttsNotificationService.ts
 
-interface Task {
-  taskId: string;
-  taskName: string;
-  architectId: string;
-  architectName: string;
-  projectName: string;
+interface TaskAssignment {
+	taskId: string;
+	taskName: string;
+	architectId: string;
+	architectName: string;
+	projectName: string;
 }
 
-export type TTSEngine = 'browser' | 'kokoro';
-export type KokoroVoice =
-  | 'af_bella'
-  | 'af_sarah'
-  | 'am_adam'
-  | 'am_michael'
-  | 'bf_emma'
-  | 'bf_isabella'
-  | 'bm_george'
-  | 'bm_lewis'
-  | 'hf_alpha'
-  | 'hf_beta'
-  | 'hm_omega'
-  | 'hm_psi';
+export type TTSEngine = 'browser' | 'server';
+export type ServerTTSVoice =
+	| 'en-US-AriaNeural'
+	| 'en-US-JennyNeural'
+	| 'en-US-ChristopherNeural'
+	| 'en-US-EricNeural'
+	| 'en-GB-LibbyNeural'
+	| 'en-GB-MaisieNeural'
+	| 'en-GB-RyanNeural'
+	| 'en-GB-ThomasNeural'
+	| 'en-IN-NeerjaNeural'
+	| 'en-IN-PrabhatNeural';
 
 export interface TTSSettings {
-  engine: TTSEngine;
-  enabled: boolean;
-  speed: number;
-  // Browser TTS settings
-  browserVoice: string | null;
-  // Kokoro TTS settings
-  kokoroVoice: KokoroVoice;
+	engine: TTSEngine;
+	enabled: boolean;
+	speed: number;
+	browserVoice: string | null;
+	serverVoice: ServerTTSVoice;
 }
 
 class TTSNotificationService {
-  private synth: SpeechSynthesis | null = null;
-  private seenTaskIds: Set<string> = new Set();
-  private settings: TTSSettings = {
-    engine: 'browser',
-    enabled: true,
-    speed: 0.9,
-    browserVoice: null,
-    kokoroVoice: 'af_bella'
-  };
-  private audioContext: AudioContext | null = null;
-  private currentAudio: HTMLAudioElement | null = null;
+	private synth: SpeechSynthesis | null = null;
+	private settings: TTSSettings = {
+		engine: 'browser',
+		enabled: true,
+		speed: 1.0,
+		browserVoice: null,
+		serverVoice: 'en-IN-PrabhatNeural'
+	};
+	private audioContext: AudioContext | null = null;
+	private eventSource: EventSource | null = null;
+	private announcementQueue: TaskAssignment[] = [];
+	private isPlaying: boolean = false;
 
-  constructor() {
-    if (typeof window !== 'undefined') {
-      if ('speechSynthesis' in window) {
-        this.synth = window.speechSynthesis;
-        this.initBrowserVoice();
-      }
-      // Initialize Web Audio API for Kokoro
-      if ('AudioContext' in window || 'webkitAudioContext' in (window as any)) {
-        this.audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
-      }
-      this.loadSettings();
-    }
-  }
+	constructor() {
+		if (typeof window !== 'undefined') {
+			if ('speechSynthesis' in window) {
+				this.synth = window.speechSynthesis;
+				this.initBrowserVoice();
+			}
+			if ('AudioContext' in window || 'webkitAudioContext' in (window as any)) {
+				this.audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
+			}
+			this.loadSettings();
+			this.connectToSSE();
+		}
+	}
 
-  /**
-   * Initialize and select the best browser voice
-   */
-  private initBrowserVoice() {
-    if (!this.synth) return;
+	/**
+	 * Connect to Server-Sent Events stream
+	 */
+	private connectToSSE() {
+		if (typeof window === 'undefined') return;
 
-    const setVoice = () => {
-      const voices = this.synth!.getVoices();
+		console.log('[TTS Client] Connecting to SSE...');
 
-      // Prefer Microsoft Edge voices
-      const edgeVoice = voices.find((v) => v.name.includes('Microsoft') && v.lang.startsWith('en'));
+		this.eventSource = new EventSource('/api/tts/stream');
 
-      const englishVoice = voices.find((v) => v.lang.startsWith('en'));
+		this.eventSource.onopen = () => {
+			console.log('[TTS Client] SSE connection established');
+		};
 
-      this.settings.browserVoice = (edgeVoice || englishVoice || voices[0])?.name || null;
+		this.eventSource.onmessage = (event) => {
+			try {
+				const message = JSON.parse(event.data);
 
-      console.log('TTS Browser Voice selected:', this.settings.browserVoice);
-    };
+				if (message.type === 'connected') {
+					console.log('[TTS Client] Connected to server');
+				} else if (message.type === 'announcement') {
+					console.log('[TTS Client] Received announcement:', message.data);
+					this.queueAnnouncement(message.data);
+				}
+			} catch (err) {
+				console.error('[TTS Client] Error parsing SSE message:', err);
+			}
+		};
 
-    if (this.synth.getVoices().length > 0) {
-      setVoice();
-    } else {
-      this.synth.addEventListener('voiceschanged', setVoice);
-    }
-  }
+		this.eventSource.onerror = (err) => {
+			console.error('[TTS Client] SSE error:', err);
+			this.eventSource?.close();
 
-  /**
-   * Load settings from localStorage
-   */
-  private loadSettings() {
-    if (typeof localStorage === 'undefined') return;
+			// Reconnect after 5 seconds
+			setTimeout(() => {
+				console.log('[TTS Client] Reconnecting...');
+				this.connectToSSE();
+			}, 5000);
+		};
+	}
 
-    try {
-      const saved = localStorage.getItem('tts-settings');
-      if (saved) {
-        const parsed = JSON.parse(saved);
-        this.settings = { ...this.settings, ...parsed };
-        console.log('TTS: Loaded settings', this.settings);
-      }
-    } catch (err) {
-      console.error('TTS: Failed to load settings', err);
-    }
-  }
+	/**
+	 * Queue an announcement to play
+	 */
+	private queueAnnouncement(assignment: TaskAssignment) {
+		if (!this.settings.enabled) {
+			console.log('[TTS Client] Announcements disabled, skipping');
+			return;
+		}
 
-  /**
-   * Save settings to localStorage
-   */
-  private saveSettings() {
-    if (typeof localStorage === 'undefined') return;
+		this.announcementQueue.push(assignment);
+		console.log('[TTS Client] Queue size:', this.announcementQueue.length);
 
-    try {
-      localStorage.setItem('tts-settings', JSON.stringify(this.settings));
-      console.log('TTS: Saved settings', this.settings);
-    } catch (err) {
-      console.error('TTS: Failed to save settings', err);
-    }
-  }
+		if (!this.isPlaying) {
+			this.processQueue();
+		}
+	}
 
-  /**
-   * Get current settings
-   */
-  getSettings(): TTSSettings {
-    return { ...this.settings };
-  }
+	/**
+	 * Process announcement queue
+	 */
+	private async processQueue() {
+		if (this.isPlaying || this.announcementQueue.length === 0) return;
 
-  /**
-   * Update settings
-   */
-  updateSettings(newSettings: Partial<TTSSettings>) {
-    this.settings = { ...this.settings, ...newSettings };
-    this.saveSettings();
-    console.log('TTS: Updated settings', this.settings);
-  }
+		this.isPlaying = true;
 
-  /**
-   * Mark tasks as seen
-   */
-  initializeSeenTasks(tasks: Task[]) {
-    tasks.forEach((task) => {
-      if (task.architectId && task.architectName) {
-        this.seenTaskIds.add(task.taskId);
-      }
-    });
-    console.log(`TTS: Initialized with ${this.seenTaskIds.size} existing tasks`);
-  }
+		while (this.announcementQueue.length > 0) {
+			const assignment = this.announcementQueue.shift()!;
+			await this.playAnnouncement(assignment);
 
-  /**
-   * Check for new task assignments and announce them
-   */
-  checkForNewAssignments(tasks: Task[]) {
-    if (!this.settings.enabled) return;
+			// Small delay between announcements
+			await this.delay(500);
+		}
 
-    const newAssignments: Task[] = [];
+		this.isPlaying = false;
+	}
 
-    tasks.forEach((task) => {
-      if (task.architectId && task.architectName && !this.seenTaskIds.has(task.taskId)) {
-        newAssignments.push(task);
-        this.seenTaskIds.add(task.taskId);
-      }
-    });
+	/**
+	 * Play a single announcement
+	 */
+	private async playAnnouncement(assignment: TaskAssignment) {
+		const message = `New task for ${assignment.architectName}: ${assignment.taskName} for ${assignment.projectName}`;
+		console.log('[TTS Client] Playing:', message);
 
-    if (newAssignments.length > 0) {
-      console.log(`TTS: Found ${newAssignments.length} new assignments`, newAssignments);
-      newAssignments.forEach((task) => this.announceTask(task));
-    }
-  }
+		if (this.settings.engine === 'server') {
+			await this.announceWithServerTTS(message);
+		} else {
+			await this.announceWithBrowser(message);
+		}
+	}
 
-  /**
-   * Announce a single task assignment
-   */
-  private async announceTask(task: Task) {
-    if (!this.settings.enabled) return;
+	/**
+	 * Initialize browser voice
+	 */
+	private initBrowserVoice() {
+		if (!this.synth) return;
 
-    const message = `New task for ${task.architectName}: ${task.taskName} for ${task.projectName}`;
-    console.log('TTS: Announcing:', message);
+		const setVoice = () => {
+			const voices = this.synth!.getVoices();
+			const edgeVoice = voices.find((v) => v.name.includes('Microsoft') && v.lang.startsWith('en'));
+			const englishVoice = voices.find((v) => v.lang.startsWith('en'));
+			this.settings.browserVoice = (edgeVoice || englishVoice || voices[0])?.name || null;
+			console.log('[TTS Client] Browser voice selected:', this.settings.browserVoice);
+		};
 
-    if (this.settings.engine === 'kokoro') {
-      await this.announceWithKokoro(message);
-    } else {
-      this.announceWithBrowser(message);
-    }
-  }
+		if (this.synth.getVoices().length > 0) {
+			setVoice();
+		} else {
+			this.synth.addEventListener('voiceschanged', setVoice);
+		}
+	}
 
-  /**
-   * Announce using browser TTS
-   */
-  private announceWithBrowser(message: string) {
-    if (!this.synth) return;
+	/**
+	 * Load settings from localStorage
+	 */
+	private loadSettings() {
+		if (typeof localStorage === 'undefined') return;
 
-    const utterance = new SpeechSynthesisUtterance(message);
+		try {
+			const saved = localStorage.getItem('tts-settings');
+			if (saved) {
+				const parsed = JSON.parse(saved);
+				this.settings = { ...this.settings, ...parsed };
+				console.log('[TTS Client] Loaded settings:', this.settings);
+			}
+		} catch (err) {
+			console.error('[TTS Client] Failed to load settings:', err);
+		}
+	}
 
-    // Find and set the voice
-    if (this.settings.browserVoice) {
-      const voices = this.synth.getVoices();
-      const voice = voices.find((v) => v.name === this.settings.browserVoice);
-      if (voice) utterance.voice = voice;
-    }
+	/**
+	 * Save settings to localStorage
+	 */
+	private saveSettings() {
+		if (typeof localStorage === 'undefined') return;
 
-    utterance.rate = this.settings.speed;
-    utterance.pitch = 1.0;
-    utterance.volume = 1.0;
+		try {
+			localStorage.setItem('tts-settings', JSON.stringify(this.settings));
+			console.log('[TTS Client] Saved settings');
+		} catch (err) {
+			console.error('[TTS Client] Failed to save settings:', err);
+		}
+	}
 
-    utterance.onerror = (event) => {
-      console.error('Browser TTS Error:', event);
-    };
+	/**
+	 * Get current settings
+	 */
+	getSettings(): TTSSettings {
+		return { ...this.settings };
+	}
 
-    utterance.onend = () => {
-      console.log('Browser TTS: Announcement complete');
-    };
+	/**
+	 * Update settings
+	 */
+	updateSettings(newSettings: Partial<TTSSettings>) {
+		this.settings = { ...this.settings, ...newSettings };
+		this.saveSettings();
+		console.log('[TTS Client] Updated settings:', this.settings);
+	}
 
-    this.synth.cancel();
-    this.synth.speak(utterance);
-  }
+	/**
+	 * Announce using browser TTS
+	 */
+	private announceWithBrowser(message: string): Promise<void> {
+		return new Promise((resolve) => {
+			if (!this.synth) {
+				resolve();
+				return;
+			}
 
-  /**
-   * Announce using Kokoro TTS
-   */
-  private async announceWithKokoro(message: string) {
-    try {
-      const response = await fetch('/api/tts', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          text: message,
-          voice: this.settings.kokoroVoice,
-          speed: this.settings.speed
-        })
-      });
+			const utterance = new SpeechSynthesisUtterance(message);
 
-      if (!response.ok) {
-        throw new Error('Kokoro TTS request failed');
-      }
+			if (this.settings.browserVoice) {
+				const voices = this.synth.getVoices();
+				const voice = voices.find((v) => v.name === this.settings.browserVoice);
+				if (voice) utterance.voice = voice;
+			}
 
-      const { audio, contentType } = await response.json();
+			utterance.rate = this.settings.speed;
+			utterance.pitch = 1.0;
+			utterance.volume = 1.0;
 
-      // Stop any currently playing audio
-      if (this.currentAudio) {
-        this.currentAudio.pause();
-        this.currentAudio = null;
-      }
+			utterance.onerror = (event) => {
+				console.error('[TTS Client] Browser TTS error:', event);
+				resolve();
+			};
 
-      // Create and play audio
-      this.currentAudio = new Audio(`data:${contentType};base64,${audio}`);
-      this.currentAudio.playbackRate = this.settings.speed;
+			utterance.onend = () => {
+				console.log('[TTS Client] Browser TTS complete');
+				resolve();
+			};
 
-      this.currentAudio.onended = () => {
-        console.log('Kokoro TTS: Announcement complete');
-        this.currentAudio = null;
-      };
+			this.synth.cancel();
+			this.synth.speak(utterance);
+		});
+	}
 
-      this.currentAudio.onerror = (err) => {
-        console.error('Kokoro TTS Audio Error:', err);
-        this.currentAudio = null;
-      };
+	/**
+	 * Announce using Server TTS (Edge TTS)
+	 */
+	private async announceWithServerTTS(message: string): Promise<void> {
+		try {
+			const response = await fetch('/api/tts', {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({
+					text: message,
+					voice: this.settings.serverVoice,
+					speed: this.settings.speed
+				})
+			});
 
-      await this.currentAudio.play();
-    } catch (err) {
-      console.error('Kokoro TTS Error:', err);
-      // Fallback to browser TTS
-      console.log('Falling back to browser TTS');
-      this.announceWithBrowser(message);
-    }
-  }
+			if (!response.ok) {
+				throw new Error('Server TTS request failed');
+			}
 
-  /**
-   * Enable or disable TTS announcements
-   */
-  setEnabled(enabled: boolean) {
-    this.settings.enabled = enabled;
-    this.saveSettings();
-    console.log(`TTS: ${enabled ? 'Enabled' : 'Disabled'}`);
+			const { audio, contentType } = await response.json();
 
-    if (!enabled) {
-      this.stopAll();
-    }
-  }
+			return new Promise((resolve, reject) => {
+				const audioElement = new Audio(`data:${contentType};base64,${audio}`);
+				audioElement.playbackRate = this.settings.speed;
 
-  /**
-   * Stop all ongoing TTS
-   */
-  private stopAll() {
-    if (this.synth) {
-      this.synth.cancel();
-    }
-    if (this.currentAudio) {
-      this.currentAudio.pause();
-      this.currentAudio = null;
-    }
-  }
+				audioElement.onended = () => {
+					console.log('[TTS Client] Server TTS complete');
+					resolve();
+				};
 
-  /**
-   * Check if TTS is available
-   */
-  isAvailable(): boolean {
-    return this.synth !== null || this.audioContext !== null;
-  }
+				audioElement.onerror = (err) => {
+					console.error('[TTS Client] Server TTS audio error:', err);
+					reject(err);
+				};
 
-  /**
-   * Get available browser voices
-   */
-  getBrowserVoices(): SpeechSynthesisVoice[] {
-    if (!this.synth) return [];
-    return this.synth.getVoices().filter((v) => v.lang.startsWith('en'));
-  }
+				audioElement.play().catch(reject);
+			});
+		} catch (err) {
+			console.error('[TTS Client] Server TTS error, falling back to browser:', err);
+			return this.announceWithBrowser(message);
+		}
+	}
 
-  /**
-   * Clear the seen tasks
-   */
-  clearSeenTasks() {
-    this.seenTaskIds.clear();
-    console.log('TTS: Cleared seen tasks');
-  }
+	/**
+	 * Helper delay function
+	 */
+	private delay(ms: number): Promise<void> {
+		return new Promise((resolve) => setTimeout(resolve, ms));
+	}
 
-  /**
-   * Test the TTS with a sample message
-   */
-  async test() {
-    await this.announceTask({
-      taskId: 'test',
-      taskName: 'Test Task',
-      architectId: 'test-arch',
-      architectName: 'John Doe',
-      projectName: 'Test Project'
-    });
-  }
+	/**
+	 * Enable or disable TTS
+	 */
+	setEnabled(enabled: boolean) {
+		this.settings.enabled = enabled;
+		this.saveSettings();
+		console.log(`[TTS Client] ${enabled ? 'Enabled' : 'Disabled'}`);
+
+		if (!enabled) {
+			this.stopAll();
+		}
+	}
+
+	/**
+	 * Stop all ongoing TTS
+	 */
+	private stopAll() {
+		if (this.synth) {
+			this.synth.cancel();
+		}
+		this.announcementQueue = [];
+		this.isPlaying = false;
+	}
+
+	/**
+	 * Check if TTS is available
+	 */
+	isAvailable(): boolean {
+		return this.synth !== null || this.audioContext !== null;
+	}
+
+	/**
+	 * Get available browser voices
+	 */
+	getBrowserVoices(): SpeechSynthesisVoice[] {
+		if (!this.synth) return [];
+		return this.synth.getVoices().filter((v) => v.lang.startsWith('en'));
+	}
+
+	/**
+	 * Test the TTS
+	 */
+	async test() {
+		await this.playAnnouncement({
+			taskId: 'test',
+			taskName: 'Test Task',
+			architectId: 'test-arch',
+			architectName: 'John Doe',
+			projectName: 'Test Project'
+		});
+	}
+
+	/**
+	 * Disconnect SSE
+	 */
+	disconnect() {
+		if (this.eventSource) {
+			this.eventSource.close();
+			this.eventSource = null;
+			console.log('[TTS Client] Disconnected from SSE');
+		}
+	}
 }
 
 // Export singleton instance
