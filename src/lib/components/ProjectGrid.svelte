@@ -6,6 +6,7 @@
 	import { architectsStore, projectsStore, tasksStore } from '$lib/stores';
 	import { getPriorityColor, getPriorityGradient, getStatusColor } from '$lib/utils/colorUtils';
 	import { formatDate } from '$lib/utils/dateUtils';
+	import type { Project, Task } from '$lib/types';
 
 	let loading = $state(true);
 	let error: string | null = $state(null);
@@ -38,8 +39,12 @@
 
 	// Build projects with their tasks
 	let projectsWithTasks = $derived.by(() => {
-		const projects = projectsState.list;
-		const tasks = tasksState.list;
+		// Exclude cancelled & completed projects
+		const projects: Project[] = projectsState.list.filter(
+			(project: Project) =>
+				project.projectStatus !== 'Cancelled' && project.projectStatus !== 'Completed'
+		);
+		const tasks: Task[] = tasksState.list;
 
 		// Group tasks by project
 		const tasksByProject = new SvelteMap<string, typeof tasks>();
@@ -51,8 +56,8 @@
 			tasksByProject.get(projectId)!.push(task);
 		});
 
-		// Add tasks to each project
-		const result = projects.map((project) => ({
+		// Add tasks to each project (only non-cancelled projects)
+		const result = projects.map((project: Project) => ({
 			...project,
 			tasks: tasksByProject.get(project.projectId) || []
 		}));
@@ -60,9 +65,69 @@
 		return result;
 	});
 
+	// Slide width scaled up by ~50% from previous defaults.
+	// Responsive: smaller on mobile, larger on desktop
+	// Mobile: 280px, Tablet: 380px, Desktop: 480px
+	const getSlideWidth = () => {
+		if (typeof window === 'undefined') return 280;
+		if (window.innerWidth < 640) return 280; // mobile (sm breakpoint)
+		if (window.innerWidth < 1024) return 380; // tablet
+		return 480; // desktop
+	};
+
+	let slideWidth = $state(getSlideWidth());
+	const SLIDE_MAX_WIDTH_PX = 360;
+
+	// Reactive state for slides per page based on screen size
+	let slidesPerPage = $state(1);
+
+	// --- Autoplay delay based on tasks in currently visible project slides ---
+
+	const BASE_AUTOPLAY_DELAY = 1000; // ms
+	const PER_TASK_DELAY = 2000; // ms per task on visible slides
+	const MIN_AUTOPLAY_DELAY = 1000;
+	const MAX_AUTOPLAY_DELAY = 200000;
+
+	let currentPage = $state(0);
+
+	let outerAutoplayDelay = $derived.by(() => {
+		const totalProjects = projectsWithTasks.length;
+		if (totalProjects === 0) return BASE_AUTOPLAY_DELAY;
+
+		const startIndex = currentPage * slidesPerPage;
+		const endIndex = Math.min(startIndex + slidesPerPage, totalProjects);
+
+		const visibleProjects = projectsWithTasks.slice(startIndex, endIndex);
+
+		// Find the maximum number of tasks in any single visible project
+		const maxTasksOnPage = visibleProjects.reduce(
+			(max, project) => Math.max(max, project.tasks?.length ?? 0),
+			0
+		);
+
+		const dynamicDelay = BASE_AUTOPLAY_DELAY + maxTasksOnPage * PER_TASK_DELAY;
+
+		// clamp so it doesn't get too fast or too slow
+		return Math.max(MIN_AUTOPLAY_DELAY, Math.min(MAX_AUTOPLAY_DELAY, dynamicDelay));
+	});
+
 	onMount(async () => {
 		try {
 			loading = true;
+
+			const updateSlidesPerPage = () => {
+				const width = window.innerWidth;
+				// update the slide width and slidesPerPage responsively
+				slideWidth = Math.min(getSlideWidth(), SLIDE_MAX_WIDTH_PX);
+				// slidesPerPage can't be less than 1; approximate how many slides fit
+				slidesPerPage = Math.max(1, Math.floor(width / slideWidth));
+			};
+
+			// Set initial value
+			updateSlidesPerPage();
+
+			// Update on resize
+			window.addEventListener('resize', updateSlidesPerPage);
 
 			await Promise.all([architectsStore.load(), projectsStore.load(), tasksStore.load()]);
 
@@ -95,6 +160,7 @@
 			// Cleanup
 			return () => {
 				window.removeEventListener('focus', handleFocus);
+				window.removeEventListener('resize', updateSlidesPerPage);
 				clearInterval(refreshInterval);
 			};
 		} catch (err) {
@@ -124,199 +190,263 @@
 		<p>No projects found.</p>
 	</div>
 {:else}
-	<div class="flex flex-row flex-wrap items-start justify-center gap-2">
-		{#each projectsWithTasks as project (project.projectId)}
-			{#if project && project.tasks.length > 0}
-				<Collapsible.Root
-					defaultOpen
-					class="group h-auto w-full max-w-90 shrink grow rounded-xl border border-gray-200"
-				>
-					<Collapsible.Trigger
-						class="flex h-12 w-full min-w-0 flex-1 flex-row items-center justify-between gap-2 rounded-t-lg bg-amber-200 bg-linear-to-r from-rose-50 to-indigo-100 px-4 text-slate-800"
-					>
-						<div class="flex flex-row items-center justify-start gap-2">
-							<div
-								class="min-h-4 min-w-4 shrink-0 rounded-full {getPriorityColor(
-									project.projectPriority
-								)}"
-							></div>
-							<h2 class="truncate text-2xl font-black">
-								{project.projectName}
-							</h2>
-						</div>
-						<p class="ml-2 text-center text-2xl font-bold text-nowrap text-slate-800">
-							{project.tasks.length} task{project.tasks.length !== 1 ? 's' : ''}
-						</p>
-					</Collapsible.Trigger>
-					<Collapsible.Content class="m-2">
-						<!-- Project Content -->
-						<div class="flex flex-col">
-							<!-- Project Details -->
-							<div class="shrink-0">
-								<div class="flex min-w-0 flex-col gap-2">
-									<div class="flex min-w-0 flex-1 items-center gap-2 overflow-hidden">
-										{#if project.projectStatus}
-											<span
-												class="shrink-0 rounded-full border px-2.5 py-0.5 text-sm font-bold whitespace-nowrap lg:text-lg {getStatusColor(
-													project.projectStatus
-												)}"
-											>
-												{project.projectStatus}
-											</span>
-										{/if}
-									</div>
-
-									<div
-										class="flex items-center justify-between gap-2 text-lg font-medium text-gray-900 lg:text-xl"
-									>
-										<span>Start: {formatDate(project.projectStartDate)}</span>
-										<span>Due: {formatDate(project.projectDueDate)}</span>
-									</div>
-								</div>
-
-								{#if project.projectDescription}
-									<p class="text-md mt-2 text-gray-600 lg:text-lg">
-										{project.projectDescription}
-									</p>
-								{/if}
-							</div>
-
-							<!-- Tasks Section: Carousel where each task is a slide -->
-							{#if project.tasks.length > 0}
-								<div
-									class="mt-1 flex flex-1 flex-col overflow-hidden border-t border-gray-200 pt-2"
+	<!-- outer carousel: add overflow-hidden and max-w-full to contain slides -->
+	<Carousel.Root
+		defaultPage={0}
+		page={currentPage}
+		onPageChange={(details) => (currentPage = details.page)}
+		slideCount={projectsWithTasks.length}
+		autoplay={{ delay: outerAutoplayDelay }}
+		loop
+		allowMouseDrag
+		spacing="10px"
+		class="group/carousel relative max-w-full"
+		{slidesPerPage}
+	>
+		<Carousel.Context>
+			{#snippet render(api)}
+				<Carousel.ItemGroup onpointerover={() => api().pause()} onpointerleave={() => api().play()}>
+					{#each projectsWithTasks as project, index (project.projectId)}
+						<!-- slide width applied via inline style and item set to flex-none -->
+						<Carousel.Item {index}>
+							{#if project && project.tasks.length > 0}
+								<Collapsible.Root
+									defaultOpen
+									class="group w-shrink-0 rounded-xl border border-gray-200"
 								>
-									<Carousel.Root
-										defaultPage={0}
-										slideCount={project.tasks.length}
-										autoplay={{ delay: 5000 }}
-										loop
-										allowMouseDrag
-										spacing="10px"
-										class="group/carousel relative"
+									<Collapsible.Trigger
+										class="flex h-10 w-full min-w-0 flex-1 flex-row items-center justify-between gap-2 rounded-t-lg bg-amber-200 bg-linear-to-r from-rose-50 to-indigo-100 px-4 text-slate-800"
 									>
-										<Carousel.Context>
-											{#snippet render(api)}
-												<Carousel.ItemGroup
-													onpointerover={() => api().pause()}
-													onpointerleave={() => api().play()}
-												>
-													{#each project.tasks as task, index (task.taskId)}
-														<Carousel.Item {index}>
-															<div
-																class="flex h-full min-h-25 w-full flex-col justify-between rounded-2xl border border-neutral-600/20 bg-linear-to-br py-1 px-3 duration-200 md:py-2 {getPriorityGradient(
-																	task.taskPriority
+										<div class="flex flex-row items-center justify-start gap-2 truncate">
+											<div
+												class="min-h-4 min-w-4 shrink-0 rounded-full {getPriorityColor(
+													project.projectPriority
+												)}"
+											></div>
+											<h2 class="truncate text-2xl font-black">
+												{project.projectName}
+											</h2>
+										</div>
+										<p class="ml-2 text-center text-2xl font-bold text-nowrap text-slate-800">
+											{project.tasks.length} task{project.tasks.length !== 1 ? 's' : ''}
+										</p>
+									</Collapsible.Trigger>
+									<Collapsible.Content class="m-2">
+										<!-- Project Content -->
+										<div class="flex flex-col">
+											<!-- Project Details -->
+											<div class="shrink-0">
+												<div class="flex min-w-0 flex-col gap-2">
+													<div class="flex min-w-0 flex-1 items-center gap-2 overflow-hidden">
+														{#if project.projectStatus}
+															<span
+																class="shrink-0 rounded-full border px-2.5 py-0.5 text-sm font-bold whitespace-nowrap lg:text-lg {getStatusColor(
+																	project.projectStatus
 																)}"
 															>
-																<div class="flex items-center justify-between gap-1">
-																	<div class="min-w-0 flex-1">
-																		<p
-																			class="text-md min-w-0 flex-1 items-center truncate font-bold text-gray-900 md:text-lg"
-																		>
-																			{task.taskName}
-																		</p>
-																	</div>
+																{project.projectStatus}
+															</span>
+														{/if}
+													</div>
 
-																	<div class="shrink-0">
-																		{#if task.taskStatus}
-																			<span
-																				class="lg:text-md inline-flex items-center rounded-full border px-2 py-1 text-xs font-medium whitespace-nowrap {getStatusColor(
-																					task.taskStatus
+													<div
+														class="flex items-center justify-between gap-2 text-lg font-medium text-gray-900 lg:text-xl"
+													>
+														<span>Start: {formatDate(project.projectStartDate)}</span>
+														<span>Due: {formatDate(project.projectDueDate)}</span>
+													</div>
+												</div>
+
+												{#if project.projectDescription}
+													<p class="text-md mt-2 text-gray-600 lg:text-lg">
+														{project.projectDescription}
+													</p>
+												{/if}
+											</div>
+
+											<!-- Tasks Section: Carousel where each task is a slide -->
+											{#if project.tasks.length > 0}
+												<div
+													class="mt-1 flex flex-1 flex-col overflow-hidden border-t border-gray-200 pt-2"
+												>
+													<Carousel.Root
+														defaultPage={0}
+														slideCount={project.tasks.length}
+														autoplay={{ delay: PER_TASK_DELAY }}
+														loop
+														allowMouseDrag
+														spacing="10px"
+														class="group/carousel relative max-w-full overflow-hidden"
+													>
+														<Carousel.Context>
+															{#snippet render(api)}
+																<Carousel.ItemGroup
+																	onpointerover={() => api().pause()}
+																	onpointerleave={() => api().play()}
+																>
+																	{#each project.tasks as task, tIndex (task.taskId)}
+																		<!-- make each inner-item occupy full width of its carousel viewport -->
+																		<Carousel.Item index={tIndex} class="w-full flex-none">
+																			<div
+																				class="flex h-full min-h-25 w-full flex-col justify-between rounded-2xl border border-neutral-600/20 bg-linear-to-br px-3 py-1 duration-200 md:py-2 {getPriorityGradient(
+																					task.taskPriority
 																				)}"
 																			>
-																				{task.taskStatus}
-																			</span>
-																		{/if}
-																	</div>
-																</div>
+																				<div class="flex items-center justify-between gap-1">
+																					<div class="min-w-0 flex-1">
+																						<p
+																							class="text-md min-w-0 flex-1 items-center truncate font-bold text-gray-900 md:text-lg"
+																						>
+																							{task.taskName}
+																						</p>
+																					</div>
 
-																{#if task.taskDescription}
-																	<p class="lg:text-md mx-1 line-clamp-3 text-sm text-gray-600">
-																		{task.taskDescription}
-																	</p>
-																{/if}
+																					<div class="shrink-0">
+																						{#if task.taskStatus}
+																							<span
+																								class="lg:text-md inline-flex items-center rounded-full border px-2 py-1 text-xs font-medium whitespace-nowrap {getStatusColor(
+																									task.taskStatus
+																								)}"
+																							>
+																								{task.taskStatus}
+																							</span>
+																						{/if}
+																					</div>
+																				</div>
 
-																<div
-																	class="text-md mt-1 flex items-center justify-between gap-2 text-gray-800"
+																				{#if task.taskDescription}
+																					<p
+																						class="lg:text-md mx-1 line-clamp-3 text-sm text-gray-600"
+																					>
+																						{task.taskDescription}
+																					</p>
+																				{/if}
+
+																				<div
+																					class="text-md mt-1 flex items-center justify-between gap-2 text-gray-800"
+																				>
+																					<span>Start: {formatDate(task.taskStartDate)}</span>
+																					<span>Due: {formatDate(task.taskDueDate)}</span>
+																				</div>
+
+																				<!-- Assigned to (kept) -->
+																				<div class="mt-1 border-t border-gray-200">
+																					{#if task.architectName}
+																						<p class="text-lg text-gray-700">
+																							Assigned to:
+																							<span class="font-bold text-gray-900"
+																								>{task.architectName}</span
+																							>
+																						</p>
+																					{:else}
+																						<p class="text-xs text-gray-500 italic md:text-sm">
+																							Unassigned
+																						</p>
+																					{/if}
+																				</div>
+																			</div>
+																		</Carousel.Item>
+																	{/each}
+																</Carousel.ItemGroup>
+															{/snippet}
+														</Carousel.Context>
+														<!-- Navigation Controls - Show on Hover -->
+														<Carousel.Control class="pointer-events-none absolute inset-0">
+															<Carousel.PrevTrigger
+																class="pointer-events-auto absolute top-1/2 left-2 -translate-y-1/2 rounded-full bg-white/90 p-2 opacity-0 shadow-lg transition-opacity duration-200 group-hover/carousel:opacity-100 hover:scale-110 hover:bg-white disabled:cursor-not-allowed disabled:opacity-50"
+															>
+																<svg
+																	xmlns="http://www.w3.org/2000/svg"
+																	width="24"
+																	height="24"
+																	viewBox="0 0 24 24"
+																	fill="none"
+																	stroke="currentColor"
+																	stroke-width="2"
+																	stroke-linecap="round"
+																	stroke-linejoin="round"
+																	class="text-gray-800"
 																>
-																	<span>Start: {formatDate(task.taskStartDate)}</span>
-																	<span>Due: {formatDate(task.taskDueDate)}</span>
-																</div>
+																	<path d="m15 18-6-6 6-6" />
+																</svg>
+															</Carousel.PrevTrigger>
 
-																<!-- Assigned to (kept) -->
-																<div class="mt-1 border-t border-gray-200 ">
-																	{#if task.architectName}
-																		<p class="text-lg text-gray-700">
-																			Assigned to:
-																			<span class="font-bold text-gray-900"
-																				>{task.architectName}</span
-																			>
-																		</p>
-																	{:else}
-																		<p class="text-xs text-gray-500 italic md:text-sm">
-																			Unassigned
-																		</p>
-																	{/if}
-																</div>
-															</div>
-														</Carousel.Item>
-													{/each}
-												</Carousel.ItemGroup>
-											{/snippet}
-										</Carousel.Context>
-										<!-- Navigation Controls - Show on Hover -->
-										<Carousel.Control class="pointer-events-none absolute inset-0">
-											<Carousel.PrevTrigger
-												class="pointer-events-auto absolute top-1/2 left-2 -translate-y-1/2 rounded-full bg-white/90 p-2 opacity-0 shadow-lg transition-opacity duration-200 group-hover/carousel:opacity-100 hover:scale-110 hover:bg-white disabled:cursor-not-allowed disabled:opacity-50"
-											>
-												<svg
-													xmlns="http://www.w3.org/2000/svg"
-													width="24"
-													height="24"
-													viewBox="0 0 24 24"
-													fill="none"
-													stroke="currentColor"
-													stroke-width="2"
-													stroke-linecap="round"
-													stroke-linejoin="round"
-													class="text-gray-800"
-												>
-													<path d="m15 18-6-6 6-6" />
-												</svg>
-											</Carousel.PrevTrigger>
-
-											<Carousel.NextTrigger
-												class="pointer-events-auto absolute top-1/2 right-2 -translate-y-1/2 rounded-full bg-white/90 p-2 opacity-0 shadow-lg transition-opacity duration-200 group-hover/carousel:opacity-100 hover:scale-110 hover:bg-white disabled:cursor-not-allowed disabled:opacity-50"
-											>
-												<svg
-													xmlns="http://www.w3.org/2000/svg"
-													width="24"
-													height="24"
-													viewBox="0 0 24 24"
-													fill="none"
-													stroke="currentColor"
-													stroke-width="2"
-													stroke-linecap="round"
-													stroke-linejoin="round"
-													class="text-gray-800"
-												>
-													<path d="m9 18 6-6-6-6" />
-												</svg>
-											</Carousel.NextTrigger>
-										</Carousel.Control>
-									</Carousel.Root>
-								</div>
-							{:else}
-								<div class="flex flex-1 items-center justify-center p-6">
-									<p class="text-center text-gray-500">No tasks assigned to this project</p>
-								</div>
+															<Carousel.NextTrigger
+																class="pointer-events-auto absolute top-1/2 right-2 -translate-y-1/2 rounded-full bg-white/90 p-2 opacity-0 shadow-lg transition-opacity duration-200 group-hover/carousel:opacity-100 hover:scale-110 hover:bg-white disabled:cursor-not-allowed disabled:opacity-50"
+															>
+																<svg
+																	xmlns="http://www.w3.org/2000/svg"
+																	width="24"
+																	height="24"
+																	viewBox="0 0 24 24"
+																	fill="none"
+																	stroke="currentColor"
+																	stroke-width="2"
+																	stroke-linecap="round"
+																	stroke-linejoin="round"
+																	class="text-gray-800"
+																>
+																	<path d="m9 18 6-6-6-6" />
+																</svg>
+															</Carousel.NextTrigger>
+														</Carousel.Control>
+													</Carousel.Root>
+												</div>
+											{:else}
+												<div class="flex flex-1 items-center justify-center p-6">
+													<p class="text-center text-gray-500">No tasks assigned to this project</p>
+												</div>
+											{/if}
+										</div>
+									</Collapsible.Content>
+								</Collapsible.Root>
 							{/if}
-						</div>
-					</Collapsible.Content>
-				</Collapsible.Root>
-			{/if}
-		{/each}
-	</div>
+						</Carousel.Item>
+					{/each}
+				</Carousel.ItemGroup>
+			{/snippet}
+		</Carousel.Context>
+		<!-- Navigation Controls - Show on Hover -->
+		<Carousel.Control class="pointer-events-none absolute inset-0">
+			<Carousel.PrevTrigger
+				class="pointer-events-auto absolute top-1/2 left-2 -translate-y-1/2 rounded-full bg-white/90 p-2 opacity-0 shadow-lg transition-opacity duration-200 group-hover/carousel:opacity-100 hover:scale-110 hover:bg-white disabled:cursor-not-allowed disabled:opacity-50"
+			>
+				<svg
+					xmlns="http://www.w3.org/2000/svg"
+					width="24"
+					height="24"
+					viewBox="0 0 24 24"
+					fill="none"
+					stroke="currentColor"
+					stroke-width="2"
+					stroke-linecap="round"
+					stroke-linejoin="round"
+					class="text-gray-800"
+				>
+					<path d="m15 18-6-6 6-6" />
+				</svg>
+			</Carousel.PrevTrigger>
+
+			<Carousel.NextTrigger
+				class="pointer-events-auto absolute top-1/2 right-2 -translate-y-1/2 rounded-full bg-white/90 p-2 opacity-0 shadow-lg transition-opacity duration-200 group-hover/carousel:opacity-100 hover:scale-110 hover:bg-white disabled:cursor-not-allowed disabled:opacity-50"
+			>
+				<svg
+					xmlns="http://www.w3.org/2000/svg"
+					width="24"
+					height="24"
+					viewBox="0 0 24 24"
+					fill="none"
+					stroke="currentColor"
+					stroke-width="2"
+					stroke-linecap="round"
+					stroke-linejoin="round"
+					class="text-gray-800"
+				>
+					<path d="m9 18 6-6-6-6" />
+				</svg>
+			</Carousel.NextTrigger>
+		</Carousel.Control>
+	</Carousel.Root>
 {/if}
 
 <style>
@@ -370,5 +500,10 @@
 
 	[data-scope='collapsible'][data-part='content'][data-state='closed'] {
 		animation: slideUp 200ms;
+	}
+
+	/* small safety: prevent the track from overflowing visually */
+	.group\/carousel {
+		contain: layout;
 	}
 </style>

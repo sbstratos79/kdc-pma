@@ -20,6 +20,8 @@ class TTSQueueManager extends EventEmitter {
 	constructor() {
 		super();
 		this.serverStartTime = Date.now();
+		// Increase max listeners to handle multiple SSE connections
+		this.setMaxListeners(100);
 		console.log('[TTS Queue] Manager initialized at', new Date(this.serverStartTime).toISOString());
 	}
 

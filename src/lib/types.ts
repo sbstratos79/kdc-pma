@@ -32,24 +32,3 @@ export interface Architect {
 	architectName: string;
 	// tasks: Task[];
 }
-
-export interface ArchitectProject {
-	architectId: string;
-	architectName: string;
-	projects: Project[];
-}
-
-// Response type for the API endpoint
-export interface PTSApiResponse {
-	architectDataValues: Architect[];
-	architectProjectDataValues: ArchitectProject[];
-	taskDataValues: Task[];
-	projectDataValues: Project[];
-	status: string[];
-	priority: string[];
-}
-
-// If you need to handle API errors
-export interface PTSApiError {
-	error: string;
-}

@@ -1,34 +1,5 @@
 // src/lib/services/ttsNotificationService.ts
 
-interface TaskAssignment {
-	taskId: string;
-	taskName: string;
-	architectId: string;
-	architectName: string;
-	projectName: string;
-}
-
-export type TTSEngine = 'browser' | 'server';
-export type ServerTTSVoice =
-	| 'en-US-AriaNeural'
-	| 'en-US-JennyNeural'
-	| 'en-US-ChristopherNeural'
-	| 'en-US-EricNeural'
-	| 'en-GB-LibbyNeural'
-	| 'en-GB-MaisieNeural'
-	| 'en-GB-RyanNeural'
-	| 'en-GB-ThomasNeural'
-	| 'en-IN-NeerjaNeural'
-	| 'en-IN-PrabhatNeural';
-
-export interface TTSSettings {
-	engine: TTSEngine;
-	enabled: boolean;
-	speed: number;
-	browserVoice: string | null;
-	serverVoice: ServerTTSVoice;
-}
-
 class TTSNotificationService {
 	private synth: SpeechSynthesis | null = null;
 	private settings: TTSSettings = {
@@ -42,9 +13,12 @@ class TTSNotificationService {
 	private eventSource: EventSource | null = null;
 	private announcementQueue: TaskAssignment[] = [];
 	private isPlaying: boolean = false;
+	private isBrowser: boolean = false;
 
 	constructor() {
-		if (typeof window !== 'undefined') {
+		this.isBrowser = typeof window !== 'undefined';
+
+		if (this.isBrowser) {
 			if ('speechSynthesis' in window) {
 				this.synth = window.speechSynthesis;
 				this.initBrowserVoice();
@@ -53,6 +27,17 @@ class TTSNotificationService {
 				this.audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
 			}
 			this.loadSettings();
+
+			// Don't connect immediately - wait for component to mount
+			// This will be called by the component
+		}
+	}
+
+	/**
+	 * Initialize the service (call this from onMount)
+	 */
+	init() {
+		if (this.isBrowser && !this.eventSource) {
 			this.connectToSSE();
 		}
 	}
@@ -61,41 +46,48 @@ class TTSNotificationService {
 	 * Connect to Server-Sent Events stream
 	 */
 	private connectToSSE() {
-		if (typeof window === 'undefined') return;
+		if (!this.isBrowser) return;
 
 		console.log('[TTS Client] Connecting to SSE...');
 
-		this.eventSource = new EventSource('/api/tts/stream');
+		try {
+			this.eventSource = new EventSource('/api/tts/stream');
 
-		this.eventSource.onopen = () => {
-			console.log('[TTS Client] SSE connection established');
-		};
+			this.eventSource.onopen = () => {
+				console.log('[TTS Client] SSE connection established');
+			};
 
-		this.eventSource.onmessage = (event) => {
-			try {
-				const message = JSON.parse(event.data);
+			this.eventSource.onmessage = (event) => {
+				try {
+					const message = JSON.parse(event.data);
 
-				if (message.type === 'connected') {
-					console.log('[TTS Client] Connected to server');
-				} else if (message.type === 'announcement') {
-					console.log('[TTS Client] Received announcement:', message.data);
-					this.queueAnnouncement(message.data);
+					if (message.type === 'connected') {
+						console.log('[TTS Client] Connected to server');
+					} else if (message.type === 'announcement') {
+						console.log('[TTS Client] Received announcement:', message.data);
+						this.queueAnnouncement(message.data);
+					}
+				} catch (err) {
+					console.error('[TTS Client] Error parsing SSE message:', err);
 				}
-			} catch (err) {
-				console.error('[TTS Client] Error parsing SSE message:', err);
-			}
-		};
+			};
 
-		this.eventSource.onerror = (err) => {
-			console.error('[TTS Client] SSE error:', err);
-			this.eventSource?.close();
+			this.eventSource.onerror = (err) => {
+				console.error('[TTS Client] SSE error:', err);
+				this.eventSource?.close();
+				this.eventSource = null;
 
-			// Reconnect after 5 seconds
-			setTimeout(() => {
-				console.log('[TTS Client] Reconnecting...');
-				this.connectToSSE();
-			}, 5000);
-		};
+				// Reconnect after 5 seconds
+				setTimeout(() => {
+					if (this.isBrowser) {
+						console.log('[TTS Client] Reconnecting...');
+						this.connectToSSE();
+					}
+				}, 5000);
+			};
+		} catch (err) {
+			console.error('[TTS Client] Failed to create EventSource:', err);
+		}
 	}
 
 	/**
@@ -277,6 +269,8 @@ class TTSNotificationService {
 
 			return new Promise((resolve, reject) => {
 				const audioElement = new Audio(`data:${contentType};base64,${audio}`);
+				audioElement.autoplay = true;
+				// audioElement.muted = true;
 				audioElement.playbackRate = this.settings.speed;
 
 				audioElement.onended = () => {
@@ -289,7 +283,17 @@ class TTSNotificationService {
 					reject(err);
 				};
 
-				audioElement.play().catch(reject);
+				audioElement.play().catch(() => {
+					// fallback: listen for user gesture then play
+					window.addEventListener(
+						'click',
+						() => {
+							audioElement.muted = false;
+							audioElement.play();
+						},
+						{ once: true }
+					);
+				});
 			});
 		} catch (err) {
 			console.error('[TTS Client] Server TTS error, falling back to browser:', err);
@@ -365,6 +369,7 @@ class TTSNotificationService {
 			this.eventSource = null;
 			console.log('[TTS Client] Disconnected from SSE');
 		}
+		this.stopAll();
 	}
 }
 

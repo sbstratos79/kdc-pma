@@ -20,6 +20,10 @@ function createTasksStore() {
 	const store: Writable<State> = writable(makeInitial());
 	let isInitialLoad = true;
 
+	// CRITICAL: Store references to enrichment data
+	let cachedArchitectsById: Record<string, any> = {};
+	let cachedProjectsById: Record<string, any> = {};
+
 	// Map API response to Task DTO
 	function mapApiResponseToTask(apiTask: any): Task {
 		return {
@@ -38,12 +42,26 @@ function createTasksStore() {
 		};
 	}
 
+	// CRITICAL: Enrich task immediately when mapping
+	function enrichTask(task: Task): Task {
+		if (task.architectId && cachedArchitectsById[task.architectId]) {
+			task.architectName = cachedArchitectsById[task.architectId].architectName || '';
+		}
+		if (task.projectId && cachedProjectsById[task.projectId]) {
+			task.projectName = cachedProjectsById[task.projectId].projectName || '';
+		}
+		return task;
+	}
+
 	async function load(force = false) {
 		store.update((s) => ({ ...s, loading: true }));
 		try {
 			const result = await fetcher.fetch(force);
 			const rawData = Array.isArray(result) ? result : (result as any)?.data || [];
-			const data = rawData.map(mapApiResponseToTask);
+
+			// CRITICAL: Enrich immediately during mapping
+			const data = rawData.map((item) => enrichTask(mapApiResponseToTask(item)));
+
 			const byId: Record<string, Task> = {};
 			data.forEach((t) => (byId[t.taskId] = t));
 			store.set({ loading: false, error: null, list: data, byId });
@@ -76,24 +94,31 @@ function createTasksStore() {
 		}
 	}
 
-	// Enrich tasks with architect and project names
+	// Update cached enrichment data and re-enrich existing tasks
 	function loadWithNames(architectsById: Record<string, any>, projectsById: Record<string, any>) {
+		// Update cache
+		cachedArchitectsById = architectsById;
+		cachedProjectsById = projectsById;
+
+		// Re-enrich existing tasks in-place
 		store.update((s) => {
-			const enriched = s.list.map((task) => ({
-				...task,
-				architectName:
-					(task.architectId ? architectsById[task.architectId] : '')?.architectName ||
-					task.architectName ||
-					'',
-				projectName: projectsById[task.projectId]?.projectName || task.projectName || ''
-			}));
+			s.list.forEach((task) => {
+				if (task.architectId && architectsById[task.architectId]) {
+					task.architectName = architectsById[task.architectId].architectName || '';
+				}
+				if (task.projectId && projectsById[task.projectId]) {
+					task.projectName = projectsById[task.projectId].projectName || '';
+				}
+			});
+
+			// Rebuild byId with enriched tasks
 			const byId: Record<string, Task> = {};
-			enriched.forEach((t) => (byId[t.taskId] = t));
+			s.list.forEach((t) => (byId[t.taskId] = t));
 
 			// Notify server after enrichment
-			notifyServerAboutTasks(enriched);
+			notifyServerAboutTasks(s.list);
 
-			return { ...s, list: enriched, byId };
+			return { ...s, byId };
 		});
 	}
 
@@ -109,8 +134,9 @@ function createTasksStore() {
 	// local optimistic helpers
 	function addLocal(item: Task) {
 		store.update((s) => {
-			const list = [...s.list, item];
-			const byId = { ...s.byId, [item.taskId]: item };
+			const enriched = enrichTask(item);
+			const list = [...s.list, enriched];
+			const byId = { ...s.byId, [enriched.taskId]: enriched };
 			return { ...s, list, byId };
 		});
 	}
@@ -119,7 +145,7 @@ function createTasksStore() {
 		store.update((s) => {
 			const existing = s.byId[id];
 			if (!existing) return s;
-			const updated = { ...existing, ...patch };
+			const updated = enrichTask({ ...existing, ...patch });
 			const list = s.list.map((x) => (x.taskId === id ? updated : x));
 			const byId = { ...s.byId, [id]: updated };
 			return { ...s, list, byId };
@@ -240,6 +266,8 @@ function createTasksStore() {
 	function clear() {
 		fetcher.clear();
 		store.set(makeInitial());
+		cachedArchitectsById = {};
+		cachedProjectsById = {};
 	}
 
 	return {

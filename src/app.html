@@ -14,3 +14,23 @@
 		<div style="display: contents">%sveltekit.body%</div>
 	</body>
 </html>
+<style>
+	html,
+	body,
+	#svelte {
+		height: 100%;
+		width: 100%;
+		margin: 0;
+		padding: 0;
+	}
+
+	body[data-sveltekit-preload-data] {
+		min-height: 100vh; /* full viewport height */
+	}
+
+	/* If your root container is #svelte */
+	#svelte {
+		display: flex;
+		flex-direction: column;
+	}
+</style>
