@@ -59,18 +59,24 @@ class TTSQueueManager extends EventEmitter {
 			if (task.architectId && task.architectName && !this.seenTaskIds.has(task.taskId)) {
 				// Check if task was created after server start
 				// Assume taskId contains timestamp or check creation date if available
-				const taskCreatedAfterStart = true; // You may need to add createdAt field to verify
+				const sqlTimestamp = task.addedTime;
+				const jsTimestamp = sqlTimestamp
+					? new Date(sqlTimestamp.replace(' ', 'T') + 'Z').getTime()
+					: null;
+				const oneMinuteInMs = 60 * 1000;
 
-				if (taskCreatedAfterStart) {
-					newAssignments.push({
-						taskId: task.taskId,
-						taskName: task.taskName,
-						architectId: task.architectId,
-						architectName: task.architectName,
-						projectName: task.projectName || '',
-						timestamp: now
-					});
-					this.seenTaskIds.add(task.taskId);
+				if (jsTimestamp) {
+					if (now - jsTimestamp <= oneMinuteInMs && jsTimestamp <= now) {
+						newAssignments.push({
+							taskId: task.taskId,
+							taskName: task.taskName,
+							architectId: task.architectId,
+							architectName: task.architectName,
+							projectName: task.projectName || '',
+							timestamp: now
+						});
+						this.seenTaskIds.add(task.taskId);
+					}
 				}
 			}
 		});
