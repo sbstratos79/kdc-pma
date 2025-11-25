@@ -4,6 +4,7 @@
 	"version": "0.0.1",
 	"type": "module",
 	"scripts": {
+		"prod": "bun ./build/index.js",
 		"dev": "vite dev",
 		"build": "vite build",
 		"preview": "vite preview",
@@ -55,6 +56,7 @@
 		"@splidejs/svelte-splide": "^0.2.9",
 		"class-variance-authority": "^0.7.1",
 		"clsx": "^2.1.1",
+		"flowbite-svelte": "^1.28.1",
 		"keen-slider": "^6.8.6",
 		"lucide-react": "^0.553.0",
 		"lucide-svelte": "^0.553.0",
