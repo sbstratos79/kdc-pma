@@ -125,8 +125,9 @@
 	let slideWidth = $state(getSlideWidth());
 	const SLIDE_MAX_WIDTH_PX = 360;
 
-	// Reactive state for slides per page based on screen size
-	let slidesPerPage = $state(1);
+	let baseSlidesPerPage = $state(1);
+
+	let slidesPerPage = $derived(Math.min(baseSlidesPerPage, visibleArchitects.length || 1));
 
 	// --- Inner + outer autoplay delays based on tasks ---
 
@@ -258,10 +259,8 @@
 			const updateSlidesPerPage = () => {
 				if (typeof window === 'undefined') return;
 				const width = window.innerWidth;
-				// update the slide width and slidesPerPage responsively
 				slideWidth = Math.min(getSlideWidth(), SLIDE_MAX_WIDTH_PX);
-				// slidesPerPage can't be less than 1; approximate how many slides fit
-				slidesPerPage = Math.max(1, Math.floor(width / slideWidth));
+				baseSlidesPerPage = Math.max(1, Math.floor(width / slideWidth));
 			};
 
 			// Set initial value
@@ -346,7 +345,11 @@
 				<Carousel.ItemGroup onpointerover={() => api().pause()} onpointerleave={() => api().play()}>
 					{#each visibleArchitects as architect, index (architect.architectId)}
 						<!-- Architect card is a slide -->
-						<Carousel.Item {index}>
+						<Carousel.Item
+							{index}
+							style="width: {slideWidth}px; max-width: {SLIDE_MAX_WIDTH_PX}px;"
+							class="flex-none"
+						>
 							<Collapsible.Root
 								defaultOpen
 								class="group w-shrink-0 rounded-xl border border-gray-200"

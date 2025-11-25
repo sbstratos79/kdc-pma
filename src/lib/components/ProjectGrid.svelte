@@ -78,8 +78,9 @@
 	let slideWidth = $state(getSlideWidth());
 	const SLIDE_MAX_WIDTH_PX = 360;
 
-	// Reactive state for slides per page based on screen size
-	let slidesPerPage = $state(1);
+	let baseSlidesPerPage = $state(1);
+
+	let slidesPerPage = $derived(Math.min(baseSlidesPerPage, projectsWithTasks.length || 1));
 
 	// --- Autoplay delay based on tasks in currently visible project slides ---
 
@@ -117,10 +118,8 @@
 
 			const updateSlidesPerPage = () => {
 				const width = window.innerWidth;
-				// update the slide width and slidesPerPage responsively
 				slideWidth = Math.min(getSlideWidth(), SLIDE_MAX_WIDTH_PX);
-				// slidesPerPage can't be less than 1; approximate how many slides fit
-				slidesPerPage = Math.max(1, Math.floor(width / slideWidth));
+				baseSlidesPerPage = Math.max(1, Math.floor(width / slideWidth));
 			};
 
 			// Set initial value
@@ -208,11 +207,15 @@
 				<Carousel.ItemGroup onpointerover={() => api().pause()} onpointerleave={() => api().play()}>
 					{#each projectsWithTasks as project, index (project.projectId)}
 						<!-- slide width applied via inline style and item set to flex-none -->
-						<Carousel.Item {index}>
+						<Carousel.Item
+							{index}
+							style="width: {slideWidth}px; max-width: {SLIDE_MAX_WIDTH_PX}px;"
+							class="flex-none"
+						>
 							{#if project && project.tasks.length > 0}
 								<Collapsible.Root
 									defaultOpen
-									class="group w-shrink-0 rounded-xl border border-gray-200"
+									class="group h-full w-full shrink-0 rounded-xl border border-gray-200"
 								>
 									<Collapsible.Trigger
 										class="flex h-10 w-full min-w-0 flex-1 flex-row items-center justify-between gap-2 rounded-t-lg bg-amber-200 bg-linear-to-r from-rose-50 to-indigo-100 px-4 text-slate-800"
@@ -267,7 +270,7 @@
 											<!-- Tasks Section: Carousel where each task is a slide -->
 											{#if project.tasks.length > 0}
 												<div
-													class="mt-1 flex flex-1 flex-col overflow-hidden border-t border-gray-200 pt-2"
+													class="mt-1 flex w-full flex-1 flex-col overflow-hidden border-t border-gray-200 pt-2"
 												>
 													<Carousel.Root
 														defaultPage={0}
@@ -276,7 +279,7 @@
 														loop
 														allowMouseDrag
 														spacing="10px"
-														class="group/carousel relative max-w-full overflow-hidden"
+														class="group/carousel relative w-full max-w-full overflow-hidden"
 													>
 														<Carousel.Context>
 															{#snippet render(api)}
