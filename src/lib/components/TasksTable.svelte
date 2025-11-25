@@ -362,8 +362,8 @@
 	<div class="tasks-container">
 		<div class="header">
 			<h2>Tasks Management</h2>
-			<div class="controls flex flex-row items-center gap-4">
-				<Text class="h-full" clear bind:value={searchTerm} onchange={handleFilter} />
+			<div class="controls mb-4 flex flex-row items-center gap-4">
+				<Text css="height: 100%;" clear bind:value={searchTerm} onchange={handleFilter} />
 				<RichSelect
 					options={statusOptions}
 					onchange={handleFilter}
@@ -398,57 +398,54 @@
 		{:else if error}
 			<div class="error">Error: {error}</div>
 		{:else if !tasks || tasks.length === 0}
-			<div class="no-data">
-				<p>No tasks found</p>
-				<pre>Debug: tasks = {JSON.stringify(tasks, null, 2)}</pre>
+			<div
+				class="mb-4 rounded-lg border border-yellow-200 bg-yellow-50 p-4 text-center text-2xl font-bold text-yellow-700"
+			>
+				<p>No tasks added.</p>
 			</div>
 		{:else}
-			<div class="debug-info">
-				<p>Showing {tasks.length} tasks</p>
-			</div>
 			<Grid data={tasks} {columns} bind:this={api} {init} selection="row" autoheight={true} />
-
-			{#if dataToEdit}
-				<Editor
-					values={dataToEdit}
-					items={getEditorConfig(columns)}
-					placement="sidebar"
-					topBar={{
-						items: [
-							{
-								comp: 'icon',
-								icon: 'wxi-close',
-								id: 'close'
-							},
-							{ comp: 'spacer' },
-							{
-								comp: 'button',
-								type: 'danger',
-								text: 'Delete',
-								id: 'delete',
-								disabled: !dataToEdit.taskId
-							},
-							{
-								comp: 'button',
-								type: 'primary',
-								text: dataToEdit.taskId ? 'Update' : 'Create',
-								id: 'save'
-							}
-						]
-					}}
-					onsave={async ({ values }) => {
-						await handleSave(values);
-					}}
-					onaction={({ item }) => {
-						if (item.id === 'delete') {
-							handleDelete();
+		{/if}
+		{#if dataToEdit}
+			<Editor
+				values={dataToEdit}
+				items={getEditorConfig(columns)}
+				placement="modal"
+				topBar={{
+					items: [
+						{
+							comp: 'icon',
+							icon: 'wxi-close',
+							id: 'close'
+						},
+						{ comp: 'spacer' },
+						{
+							comp: 'button',
+							type: 'danger',
+							text: 'Delete',
+							id: 'delete',
+							disabled: !dataToEdit.taskId
+						},
+						{
+							comp: 'button',
+							type: 'primary',
+							text: dataToEdit.taskId ? 'Update' : 'Create',
+							id: 'save'
 						}
-						if (item.id === 'close') {
-							closeEditor();
-						}
-					}}
-				/>
-			{/if}
+					]
+				}}
+				onsave={async ({ values }) => {
+					await handleSave(values);
+				}}
+				onaction={({ item }) => {
+					if (item.id === 'delete') {
+						handleDelete();
+					}
+					if (item.id === 'close') {
+						closeEditor();
+					}
+				}}
+			/>
 		{/if}
 	</div>
 </Willow>

@@ -310,8 +310,9 @@
 	<div class="project-container">
 		<div class="header">
 			<h2>Projects Management</h2>
-			<div class="controls flex flex-row items-center gap-4">
-				<Text class="h-full" clear bind:value={searchTerm} onchange={handleFilter} />
+			<div class="controls mb-4 flex flex-row items-center gap-4">
+				<Text css="height: 100%;" clear bind:value={searchTerm} onchange={handleFilter} />
+
 				<RichSelect
 					options={statusOptions}
 					onchange={handleFilter}
@@ -333,7 +334,7 @@
 					onchange={handleFilter}
 				/>
 				<button
-					class="add-btn w-[400px] rounded-md bg-blue-500 p-2 text-white"
+					class="add-btn w-[420px] rounded-md bg-blue-500 p-2 text-white"
 					onclick={handleAddProject}
 				>
 					+ Add Project
@@ -346,57 +347,55 @@
 		{:else if error}
 			<div class="error">Error: {error}</div>
 		{:else if !projects || projects.length === 0}
-			<div class="no-data">
-				<p>No projects found</p>
-				<pre>Debug: projects= {JSON.stringify(projects, null, 2)}</pre>
+			<div
+				class="mb-4 rounded-lg border border-yellow-200 bg-yellow-50 p-4 text-center text-2xl font-bold text-yellow-700"
+			>
+				<p>No projects added.</p>
 			</div>
 		{:else}
-			<div class="debug-info">
-				<p>Showing {projects.length} projects</p>
-			</div>
 			<Grid data={projects} {columns} bind:this={api} {init} selection="row" autoheight={true} />
+		{/if}
 
-			{#if dataToEdit}
-				<Editor
-					values={dataToEdit}
-					items={getEditorConfig(columns)}
-					placement="sidebar"
-					topBar={{
-						items: [
-							{
-								comp: 'icon',
-								icon: 'wxi-close',
-								id: 'close'
-							},
-							{ comp: 'spacer' },
-							{
-								comp: 'button',
-								type: 'danger',
-								text: 'Delete',
-								id: 'delete',
-								disabled: !dataToEdit.projectId
-							},
-							{
-								comp: 'button',
-								type: 'primary',
-								text: dataToEdit.projectId ? 'Update' : 'Create',
-								id: 'save'
-							}
-						]
-					}}
-					onsave={async ({ values }) => {
-						await handleSave(values);
-					}}
-					onaction={({ item }) => {
-						if (item.id === 'delete') {
-							handleDelete();
+		{#if dataToEdit}
+			<Editor
+				values={dataToEdit}
+				items={getEditorConfig(columns)}
+				placement="modal"
+				topBar={{
+					items: [
+						{
+							comp: 'icon',
+							icon: 'wxi-close',
+							id: 'close'
+						},
+						{ comp: 'spacer' },
+						{
+							comp: 'button',
+							type: 'danger',
+							text: 'Delete',
+							id: 'delete',
+							disabled: !dataToEdit.projectId
+						},
+						{
+							comp: 'button',
+							type: 'primary',
+							text: dataToEdit.projectId ? 'Update' : 'Create',
+							id: 'save'
 						}
-						if (item.id === 'close') {
-							closeEditor();
-						}
-					}}
-				/>
-			{/if}
+					]
+				}}
+				onsave={async ({ values }) => {
+					await handleSave(values);
+				}}
+				onaction={({ item }) => {
+					if (item.id === 'delete') {
+						handleDelete();
+					}
+					if (item.id === 'close') {
+						closeEditor();
+					}
+				}}
+			/>
 		{/if}
 	</div>
 </Willow>
