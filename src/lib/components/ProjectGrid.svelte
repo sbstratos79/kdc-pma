@@ -80,35 +80,43 @@
 
 	let baseSlidesPerPage = $state(1);
 
-	let slidesPerPage = $derived(Math.min(baseSlidesPerPage, projectsWithTasks.length || 1));
-
 	// --- Autoplay delay based on tasks in currently visible project slides ---
 
 	const BASE_AUTOPLAY_DELAY = 1000; // ms
-	const PER_TASK_DELAY = 2000; // ms per task on visible slides
+	const PER_TASK_DELAY = 3000; // ms per task on visible slides
 	const MIN_AUTOPLAY_DELAY = 1000;
-	const MAX_AUTOPLAY_DELAY = 200000;
+	const MAX_AUTOPLAY_DELAY = 999999;
 
 	let currentPage = $state(0);
 
+	// In document 2, after the projectsWithTasks derived state, add:
+
+	// Filter to only projects that have tasks (so slideCount matches visible slides)
+	let visibleProjects = $derived.by(() =>
+		projectsWithTasks.filter((p) => p && Array.isArray(p.tasks) && p.tasks.length > 0)
+	);
+
+	// Update slidesPerPage to use visibleProjects
+	let slidesPerPage = $derived(Math.min(baseSlidesPerPage, visibleProjects.length || 1));
+
+	// Update outerAutoplayDelay to use visibleProjects
 	let outerAutoplayDelay = $derived.by(() => {
-		const totalProjects = projectsWithTasks.length;
+		const totalProjects = visibleProjects.length;
 		if (totalProjects === 0) return BASE_AUTOPLAY_DELAY;
 
 		const startIndex = currentPage * slidesPerPage;
 		const endIndex = Math.min(startIndex + slidesPerPage, totalProjects);
 
-		const visibleProjects = projectsWithTasks.slice(startIndex, endIndex);
+		const visibleProjectsOnPage = visibleProjects.slice(startIndex, endIndex);
 
 		// Find the maximum number of tasks in any single visible project
-		const maxTasksOnPage = visibleProjects.reduce(
+		const maxTasksOnPage = visibleProjectsOnPage.reduce(
 			(max, project) => Math.max(max, project.tasks?.length ?? 0),
 			0
 		);
 
 		const dynamicDelay = BASE_AUTOPLAY_DELAY + maxTasksOnPage * PER_TASK_DELAY;
 
-		// clamp so it doesn't get too fast or too slow
 		return Math.max(MIN_AUTOPLAY_DELAY, Math.min(MAX_AUTOPLAY_DELAY, dynamicDelay));
 	});
 
@@ -120,6 +128,7 @@
 				const width = window.innerWidth;
 				slideWidth = Math.min(getSlideWidth(), SLIDE_MAX_WIDTH_PX);
 				baseSlidesPerPage = Math.max(1, Math.floor(width / slideWidth));
+				// Force carousel remount on zoom
 			};
 
 			// Set initial value
@@ -127,6 +136,11 @@
 
 			// Update on resize
 			window.addEventListener('resize', updateSlidesPerPage);
+
+			// Detect zoom using visualViewport
+			if (window.visualViewport) {
+				window.visualViewport.addEventListener('resize', updateSlidesPerPage);
+			}
 
 			await Promise.all([architectsStore.load(), projectsStore.load(), tasksStore.load()]);
 
@@ -194,12 +208,12 @@
 		defaultPage={0}
 		page={currentPage}
 		onPageChange={(details) => (currentPage = details.page)}
-		slideCount={projectsWithTasks.length}
+		slideCount={visibleProjects.length}
 		autoplay={{ delay: outerAutoplayDelay }}
 		loop
 		allowMouseDrag
 		spacing="10px"
-		class="group/carousel relative max-w-full"
+		class="group/carousel relative max-w-full overflow-hidden"
 		{slidesPerPage}
 	>
 		<Carousel.Context>
@@ -209,7 +223,7 @@
 						<!-- slide width applied via inline style and item set to flex-none -->
 						<Carousel.Item
 							{index}
-							style="width: {slideWidth}px; max-width: {SLIDE_MAX_WIDTH_PX}px;"
+							style="flex: 0 0 calc(100% / {slidesPerPage}); max-width: {SLIDE_MAX_WIDTH_PX}px;"
 							class="flex-none"
 						>
 							{#if project && project.tasks.length > 0}
@@ -503,10 +517,5 @@
 
 	[data-scope='collapsible'][data-part='content'][data-state='closed'] {
 		animation: slideUp 200ms;
-	}
-
-	/* small safety: prevent the track from overflowing visually */
-	.group\/carousel {
-		contain: layout;
 	}
 </style>

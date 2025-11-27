@@ -133,7 +133,7 @@
 
 	// Inner (project) carousels – per architect
 	const INNER_BASE_DELAY = 1000; // ms
-	const INNER_PER_TASK_DELAY = 2000; // ms per task
+	const INNER_PER_TASK_DELAY = 3000; // ms per task
 	const INNER_MIN_DELAY = 1000;
 	const INNER_MAX_DELAY = 999999;
 
@@ -337,7 +337,7 @@
 		loop
 		allowMouseDrag
 		spacing="10px"
-		class="group/carousel relative max-w-full"
+		class="group/carousel relative max-w-full overflow-hidden"
 		{slidesPerPage}
 	>
 		<Carousel.Context>
@@ -347,7 +347,7 @@
 						<!-- Architect card is a slide -->
 						<Carousel.Item
 							{index}
-							style="width: {slideWidth}px; max-width: {SLIDE_MAX_WIDTH_PX}px;"
+							style="flex: 0 0 calc(100% / {slidesPerPage}); max-width: {SLIDE_MAX_WIDTH_PX}px;"
 							class="flex-none"
 						>
 							<Collapsible.Root
@@ -613,10 +613,5 @@
 		-webkit-line-clamp: 3;
 		-webkit-box-orient: vertical;
 		overflow: hidden;
-	}
-
-	/* same safety as other component */
-	.group\/carousel {
-		contain: layout;
 	}
 </style>

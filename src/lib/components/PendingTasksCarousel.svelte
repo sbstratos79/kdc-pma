@@ -162,7 +162,7 @@
 						<!-- slide: responsive fixed width -->
 						<Carousel.Item {index} class="max-h-50 max-w-90 py-2">
 							<div
-								class="flex h-full flex-col rounded-2xl border border-neutral-600/20 bg-linear-to-br md:rounded-3xl {getPriorityGradient(
+								class="flex h-full flex-col rounded-lg border border-neutral-600/20 bg-linear-to-br {getPriorityGradient(
 									task.taskPriority
 								)} px-2 py-1 duration-200 md:px-3 md:py-2"
 							>

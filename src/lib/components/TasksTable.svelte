@@ -342,13 +342,14 @@
 
 	// Handle add new task
 	function handleAddTask() {
+		// Use a Date instance, not an ISO string
 		dataToEdit = {
 			taskId: '',
 			taskName: '',
 			taskDescription: null,
 			taskStatus: 'Planning',
 			taskPriority: 'Medium',
-			taskStartDate: new Date().toISOString(),
+			taskStartDate: new Date(), // <-- Date instance
 			taskDueDate: null,
 			architectId: '',
 			architectName: '',
@@ -407,45 +408,47 @@
 			<Grid data={tasks} {columns} bind:this={api} {init} selection="row" autoheight={true} />
 		{/if}
 		{#if dataToEdit}
-			<Editor
-				values={dataToEdit}
-				items={getEditorConfig(columns)}
-				placement="modal"
-				topBar={{
-					items: [
-						{
-							comp: 'icon',
-							icon: 'wxi-close',
-							id: 'close'
-						},
-						{ comp: 'spacer' },
-						{
-							comp: 'button',
-							type: 'danger',
-							text: 'Delete',
-							id: 'delete',
-							disabled: !dataToEdit.taskId
-						},
-						{
-							comp: 'button',
-							type: 'primary',
-							text: dataToEdit.taskId ? 'Update' : 'Create',
-							id: 'save'
+			{#key dataToEdit.taskId || `new-${dataToEdit.taskStartDate?.getTime() || 'x'}`}
+				<Editor
+					values={dataToEdit}
+					items={getEditorConfig(columns)}
+					placement="modal"
+					topBar={{
+						items: [
+							{
+								comp: 'icon',
+								icon: 'wxi-close',
+								id: 'close'
+							},
+							{ comp: 'spacer' },
+							{
+								comp: 'button',
+								type: 'danger',
+								text: 'Delete',
+								id: 'delete',
+								disabled: !dataToEdit.taskId
+							},
+							{
+								comp: 'button',
+								type: 'primary',
+								text: dataToEdit.taskId ? 'Update' : 'Create',
+								id: 'save'
+							}
+						]
+					}}
+					onsave={async ({ values }) => {
+						await handleSave(values);
+					}}
+					onaction={({ item }) => {
+						if (item.id === 'delete') {
+							handleDelete();
 						}
-					]
-				}}
-				onsave={async ({ values }) => {
-					await handleSave(values);
-				}}
-				onaction={({ item }) => {
-					if (item.id === 'delete') {
-						handleDelete();
-					}
-					if (item.id === 'close') {
-						closeEditor();
-					}
-				}}
-			/>
+						if (item.id === 'close') {
+							closeEditor();
+						}
+					}}
+				/>
+			{/key}
 		{/if}
 	</div>
 </Willow>

@@ -27,16 +27,14 @@
 
 <div class="px-2 pt-2 md:px-6 lg:pt-6">
 	<div class="flex flex-col items-start gap-2 lg:h-full lg:flex-row lg:gap-6">
-		<div class="hidden h-full lg:block lg:w-1/7">
+		<div class="hidden h-full lg:block lg:w-[20vw]">
 			<PendingTasksVerticalCarousel />
 		</div>
-
 		<div class="block w-full lg:hidden">
 			<PendingTasksCarousel />
 		</div>
-
 		<div
-			class="flex h-full w-full grow flex-col items-start justify-start gap-2 overflow-hidden md:w-6/7 lg:gap-6"
+			class="flex h-full min-w-0 flex-1 flex-col items-start justify-start gap-2 lg:w-[80vw] lg:gap-6"
 		>
 			<ArchitectProjectTaskGrid />
 			<ProjectGrid />
