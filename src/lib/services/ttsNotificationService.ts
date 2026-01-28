@@ -130,7 +130,7 @@ class TTSNotificationService {
 	 * Play a single announcement
 	 */
 	private async playAnnouncement(assignment: TaskAssignment) {
-		const message = `New task for ${assignment.architectName}: ${assignment.taskName} for ${assignment.projectName}`;
+		  const message = `New task for ${assignment.architectName}: ${assignment.taskName} for ${assignment.projectName}. ${assignment.taskDescription}`;
 		console.log('[TTS Client] Playing:', message);
 
 		if (this.settings.engine === 'server') {

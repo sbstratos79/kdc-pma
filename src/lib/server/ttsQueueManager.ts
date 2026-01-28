@@ -4,6 +4,7 @@ import { EventEmitter } from 'events';
 interface TaskAssignment {
 	taskId: string;
 	taskName: string;
+  taskDescription: string;
 	architectId: string;
 	architectName: string;
 	projectName: string;
@@ -72,6 +73,7 @@ class TTSQueueManager extends EventEmitter {
 						newAssignments.push({
 							taskId: task.taskId,
 							taskName: task.taskName,
+              taskDescription: task.taskDescription,
 							architectId: task.architectId,
 							architectName: task.architectName,
 							projectName: task.projectName || '',
