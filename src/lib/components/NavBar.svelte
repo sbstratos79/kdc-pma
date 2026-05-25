@@ -23,6 +23,7 @@
 			<NavLi href="/tasks-editor">Tasks Editor</NavLi>
 			<NavLi href="/projects-editor">Projects Editor</NavLi>
 			<NavLi href="/architects-editor">Architects Editor</NavLi>
+			<NavLi href="/reports">Reports</NavLi>
 			<NavLi href="/tts-settings">TTS Settings</NavLi>
 		</span>
 	</NavUl>

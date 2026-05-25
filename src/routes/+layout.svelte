@@ -6,5 +6,9 @@
 	let { children } = $props();
 </script>
 
-<NavBar />
-{@render children()}
+<div class="h-screen flex flex-col overflow-hidden">
+	<NavBar />
+	<div class="flex-1 overflow-y-auto">
+		{@render children()}
+	</div>
+</div>

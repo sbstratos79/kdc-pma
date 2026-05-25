@@ -201,10 +201,10 @@
 	<div class="architects-container">
 		<div class="header">
 			<h2>Architects Management</h2>
-			<div class="controls mb-4 flex flex-row items-center gap-4">
+			<div class="controls mb-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-4">
 				<Text css="height: 100%;" clear bind:value={searchTerm} onchange={handleFilter} />
 				<button
-					class="add-btn w-[400px] rounded-md bg-blue-500 p-2 text-white"
+					class="add-btn w-full rounded-md bg-blue-500 p-2 text-white sm:w-auto"
 					onclick={handleAddArchitect}
 				>
 					+ Add Architect
@@ -223,7 +223,9 @@
 				<p>No architects added.</p>
 			</div>
 		{:else}
-			<Grid data={architects} {columns} bind:this={api} {init} selection="row" autoheight={true} />
+			<div class="overflow-x-auto">
+				<Grid data={architects} {columns} bind:this={api} {init} selection="row" autoheight={true} />
+			</div>
 		{/if}
 
 		{#if dataToEdit}

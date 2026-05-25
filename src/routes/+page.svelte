@@ -25,20 +25,16 @@
 	});
 </script>
 
-<div class="px-2 pt-2 md:px-6 lg:pt-6">
-	<div class="flex flex-col items-start gap-2 lg:h-full lg:flex-row lg:gap-6">
-		<div class="hidden h-full lg:block lg:w-[20vw]">
-			<PendingTasksVerticalCarousel />
-		</div>
-		<div class="block w-full lg:hidden">
-			<PendingTasksCarousel />
-		</div>
-		<div
-			class="flex h-full min-w-0 flex-1 flex-col items-start justify-start gap-2 lg:w-[80vw] lg:gap-6"
-		>
-			<ArchitectProjectTaskGrid />
-			<ProjectGrid />
-		</div>
+<div class="flex h-full flex-col overflow-y-auto px-2 pt-2 md:px-6 lg:flex-row lg:overflow-hidden lg:gap-6 lg:pt-6">
+	<div class="hidden overflow-y-auto lg:block lg:w-[20vw]">
+		<PendingTasksVerticalCarousel />
+	</div>
+	<div class="block w-full flex-shrink-0 lg:hidden">
+		<PendingTasksCarousel />
+	</div>
+	<div class="flex min-w-0 flex-1 flex-col gap-2 lg:h-full lg:gap-6 lg:overflow-y-auto">
+		<ArchitectProjectTaskGrid />
+		<ProjectGrid />
 	</div>
 </div>
 

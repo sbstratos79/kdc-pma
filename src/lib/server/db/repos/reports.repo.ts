@@ -9,9 +9,9 @@ import { STATUSES, PRIORITIES } from '$lib/server/db/schema';
 // ---------------------------------------------------------------------------
 
 export interface ReportFilters {
-	/** ISO date string e.g. "2025-01-01" — filters by addedTime >= dateFrom */
+	/** ISO date string e.g. "2025-01-01" — filters by dueDate >= dateFrom */
 	dateFrom?: string | null;
-	/** ISO date string — filters by addedTime <= dateTo */
+	/** ISO date string — filters by dueDate <= dateTo */
 	dateTo?: string | null;
 	/** Only include tasks (and projects with those tasks) for this architect */
 	architectId?: string | null;
@@ -19,6 +19,8 @@ export interface ReportFilters {
 	status?: string | null;
 	/** Filter projects/tasks by priority */
 	priority?: string | null;
+	/** Search term matching project/task/architect name */
+	search?: string | null;
 }
 
 // ---------------------------------------------------------------------------
@@ -99,12 +101,11 @@ function daysOverdue(dueDateIso: string): number {
 	return Math.floor((now - due) / 86_400_000);
 }
 
-function inDateRange(addedTime: string | null | undefined, from?: string | null, to?: string | null): boolean {
+function inDateRange(dueDate: string | null | undefined, from?: string | null, to?: string | null): boolean {
 	if (!from && !to) return true;
-	if (!addedTime) return true;
-	const d = addedTime.substring(0, 10);
-	if (from && d < from) return false;
-	if (to && d > to) return false;
+	if (!dueDate) return true;
+	if (from && dueDate < from) return false;
+	if (to && dueDate > to) return false;
 	return true;
 }
 
@@ -121,13 +122,25 @@ export async function getProjectStatusSummary(filters: ReportFilters = {}): Prom
 	const today = todayIso();
 
 	let filteredProjects = allProjects
+		.filter(
+			(p) =>
+				!filters.search ||
+				p.name.toLowerCase().includes(filters.search.toLowerCase()) ||
+				(p.description ?? '').toLowerCase().includes(filters.search.toLowerCase())
+		)
 		.filter((p) => !filters.status || p.status === filters.status)
 		.filter((p) => !filters.priority || p.priority === filters.priority)
-		.filter((p) => inDateRange(p.addedTime, filters.dateFrom, filters.dateTo));
+		.filter((p) => inDateRange(p.dueDate, filters.dateFrom, filters.dateTo));
 
 	let filteredTasks = allTasks
+		.filter(
+			(t) =>
+				!filters.search ||
+				t.name.toLowerCase().includes(filters.search.toLowerCase()) ||
+				(t.description ?? '').toLowerCase().includes(filters.search.toLowerCase())
+		)
 		.filter((t) => !filters.architectId || t.architectId === filters.architectId)
-		.filter((t) => inDateRange(t.addedTime, filters.dateFrom, filters.dateTo));
+		.filter((t) => inDateRange(t.dueDate, filters.dateFrom, filters.dateTo));
 
 	if (filters.architectId) {
 		const projectIdsWithArch = new Set(filteredTasks.map((t) => t.projectId));
@@ -167,15 +180,16 @@ export async function getArchitectWorkload(filters: ReportFilters = {}): Promise
 
 	const today = todayIso();
 
-	let filteredArchitects = allArchitects;
+	let filteredArchitects = allArchitects
+		.filter((a) => !filters.search || a.name.toLowerCase().includes(filters.search.toLowerCase()));
 	if (filters.architectId) {
-		filteredArchitects = allArchitects.filter((a) => a.id === filters.architectId);
+		filteredArchitects = filteredArchitects.filter((a) => a.id === filters.architectId);
 	}
 
 	const filteredTasks = allTasks
 		.filter((t) => !filters.priority || t.priority === filters.priority)
 		.filter((t) => !filters.status || t.status === filters.status)
-		.filter((t) => inDateRange(t.addedTime, filters.dateFrom, filters.dateTo));
+		.filter((t) => inDateRange(t.dueDate, filters.dateFrom, filters.dateTo));
 
 	return filteredArchitects.map((a) => {
 		const at = filteredTasks.filter((t) => t.architectId === a.id);
@@ -210,9 +224,16 @@ export async function getOverdueTasks(filters: ReportFilters = {}): Promise<Over
 
 	return allTasks
 		.filter((t) => t.dueDate && t.dueDate < today && t.status !== 'Completed' && t.status !== 'Cancelled')
+		.filter(
+			(t) =>
+				!filters.search ||
+				t.name.toLowerCase().includes(filters.search.toLowerCase()) ||
+				(projectMap.get(t.projectId) ?? '').toLowerCase().includes(filters.search.toLowerCase()) ||
+				(t.architectId && (architectMap.get(t.architectId) ?? '').toLowerCase().includes(filters.search.toLowerCase()))
+		)
 		.filter((t) => !filters.architectId || t.architectId === filters.architectId)
 		.filter((t) => !filters.priority || t.priority === filters.priority)
-		.filter((t) => inDateRange(t.addedTime, filters.dateFrom, filters.dateTo))
+		.filter((t) => inDateRange(t.dueDate, filters.dateFrom, filters.dateTo))
 		.map((t) => ({
 			taskId: t.id,
 			taskName: t.name,
@@ -238,13 +259,25 @@ export async function getStatusAndPriorityBreakdown(filters: ReportFilters = {})
 	]);
 
 	const filteredProjects = allProjects
+		.filter(
+			(p) =>
+				!filters.search ||
+				p.name.toLowerCase().includes(filters.search.toLowerCase()) ||
+				(p.description ?? '').toLowerCase().includes(filters.search.toLowerCase())
+		)
 		.filter((p) => !filters.priority || p.priority === filters.priority)
-		.filter((p) => inDateRange(p.addedTime, filters.dateFrom, filters.dateTo));
+		.filter((p) => inDateRange(p.dueDate, filters.dateFrom, filters.dateTo));
 
 	const filteredTasks = allTasks
+		.filter(
+			(t) =>
+				!filters.search ||
+				t.name.toLowerCase().includes(filters.search.toLowerCase()) ||
+				(t.description ?? '').toLowerCase().includes(filters.search.toLowerCase())
+		)
 		.filter((t) => !filters.architectId || t.architectId === filters.architectId)
 		.filter((t) => !filters.priority || t.priority === filters.priority)
-		.filter((t) => inDateRange(t.addedTime, filters.dateFrom, filters.dateTo));
+		.filter((t) => inDateRange(t.dueDate, filters.dateFrom, filters.dateTo));
 
 	const statusFunnel: StatusFunnelRow[] = STATUSES.map((s) => ({
 		status: s,

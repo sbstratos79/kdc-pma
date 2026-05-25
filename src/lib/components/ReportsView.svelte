@@ -4,11 +4,13 @@
 -->
 
 <script lang="ts">
-	import { onMount, onDestroy } from 'svelte';
-	import { Willow, DatePicker, RichSelect } from 'wx-svelte-core';
-	import { Grid } from 'wx-svelte-grid';
-	import { formatDate } from '$lib/utils/dateUtils';
-	import Chart from 'chart.js/auto';
+  import { onMount } from 'svelte';
+  import { Willow, DatePicker, RichSelect, DateRangePicker, Text } from 'wx-svelte-core';
+  import { Grid } from 'wx-svelte-grid';
+  import { formatDate } from '$lib/utils/dateUtils';
+  import { getStatusColor, getPriorityColor } from '$lib/utils/colorUtils';
+  import { enumsStore, architectsStore } from '$lib/stores';
+  import Chart from 'chart.js/auto';
 
 	// ---------------------------------------------------------------------------
 	// Types (client-side mirror of reports.repo.ts — no server imports on client)
@@ -75,35 +77,41 @@
 	let error = $state<string | null>(null);
 	let reports = $state<AllReports | null>(null);
 	let activeTab = $state<'overview' | 'projects' | 'architects' | 'overdue'>('overview');
-	let filtersOpen = $state(true);
+	let initialLoadDone = $state(false);
 
 	// Filter state
-	let dateFrom = $state<Date | null>(null);
-	let dateTo = $state<Date | null>(null);
+	let searchTerm = $state('');
+	let dueRange = $state<{ start: Date | null; end: Date | null }>({ start: null, end: null });
 	let architectId = $state<string>('all');
 	let statusFilter = $state<string>('all');
 	let priorityFilter = $state<string>('all');
 
-	// Architect list for the dropdown
-	let architectOptions = $state<Array<{ id: string; label: string }>>([
-		{ id: 'all', label: 'All Architects' }
-	]);
+	// Store subscriptions for filter options
+	let enumsState = $state<{ loading: boolean; value?: { status: string[]; priority: string[] }; error?: string | null }>({ loading: false });
+	$effect(() => {
+		const unsub = enumsStore.subscribe((s) => { enumsState = s; });
+		return unsub;
+	});
 
-	// Enum options
-	const statusOptions = [
-		{ id: 'all', label: 'All Statuses' },
-		{ id: 'Planning', label: 'Planning' },
-		{ id: 'In Progress', label: 'In Progress' },
-		{ id: 'Completed', label: 'Completed' },
-		{ id: 'On Hold', label: 'On Hold' },
-		{ id: 'Cancelled', label: 'Cancelled' }
-	];
-	const priorityOptions = [
+	let architectsState = $state<any>({ list: [], loading: true, error: null });
+	$effect(() => {
+		const unsub = architectsStore.subscribe((s) => { architectsState = s; });
+		return unsub;
+	});
+
+	// Derived filter options from stores
+	let architectOptions = $derived([
+		{ id: 'all', label: 'All Architects' },
+		...architectsState.list.map((a: any) => ({ id: a.architectId, label: a.architectName }))
+	]);
+	let statusOptions = $derived([
+		{ id: 'all', label: 'All Status' },
+		...(enumsState.value?.status?.map((s: string) => ({ id: s, label: s })) ?? [])
+	]);
+	let priorityOptions = $derived([
 		{ id: 'all', label: 'All Priorities' },
-		{ id: 'High', label: 'High' },
-		{ id: 'Medium', label: 'Medium' },
-		{ id: 'Low', label: 'Low' }
-	];
+		...(enumsState.value?.priority?.map((p: string) => ({ id: p, label: p })) ?? [])
+	]);
 
 	// Tabs definition
 	const tabs: Array<[string, string]> = [
@@ -123,8 +131,9 @@
 		reports?.projectSummary.filter((p) => p.status === 'Completed').length ?? 0
 	);
 	let hasActiveFilters = $derived(
-		dateFrom !== null ||
-			dateTo !== null ||
+		searchTerm !== '' ||
+			dueRange.start !== null ||
+			dueRange.end !== null ||
 			architectId !== 'all' ||
 			statusFilter !== 'all' ||
 			priorityFilter !== 'all'
@@ -290,8 +299,9 @@
 	// ---------------------------------------------------------------------------
 	function buildQueryString(extra?: Record<string, string>): string {
 		const p = new URLSearchParams();
-		if (dateFrom) p.set('dateFrom', dateFrom.toISOString().split('T')[0]);
-		if (dateTo) p.set('dateTo', dateTo.toISOString().split('T')[0]);
+		if (searchTerm) p.set('search', searchTerm);
+		if (dueRange.start) p.set('dateFrom', dueRange.start.toISOString().split('T')[0]);
+		if (dueRange.end) p.set('dateTo', dueRange.end.toISOString().split('T')[0]);
 		if (architectId !== 'all') p.set('architectId', architectId);
 		if (statusFilter !== 'all') p.set('status', statusFilter);
 		if (priorityFilter !== 'all') p.set('priority', priorityFilter);
@@ -315,27 +325,9 @@
 		}
 	}
 
-	async function loadArchitects() {
-		try {
-			const res = await fetch('/api/architects');
-			const json = await res.json();
-			if (json.data) {
-				architectOptions = [
-					{ id: 'all', label: 'All Architects' },
-					...json.data.map((a: any) => ({
-						id: a.architectId ?? a.id,
-						label: a.architectName ?? a.name
-					}))
-				];
-			}
-		} catch {
-			/* non-fatal */
-		}
-	}
-
 	function resetFilters() {
-		dateFrom = null;
-		dateTo = null;
+		searchTerm = '';
+		dueRange = { start: null, end: null };
 		architectId = 'all';
 		statusFilter = 'all';
 		priorityFilter = 'all';
@@ -343,8 +335,17 @@
 	}
 
 	onMount(async () => {
-		await Promise.all([loadArchitects(), loadReports()]);
+		await Promise.all([enumsStore.load(), architectsStore.load()]);
+		await loadReports();
+		initialLoadDone = true;
 	});
+
+	// Debounced filter change handler
+	let filterTimeout: ReturnType<typeof setTimeout>;
+	function handleFilterChange() {
+		clearTimeout(filterTimeout);
+		filterTimeout = setTimeout(loadReports, 300);
+	}
 
 	// ---------------------------------------------------------------------------
 	// Export
@@ -447,604 +448,227 @@
 </script>
 
 <Willow>
-	<div class="reports-root">
+	<div class="max-w-[98%] p-4">
 		<!-- ── Header ─────────────────────────────────────────────────── -->
-		<div class="mb-5 flex items-center justify-between">
+		<div class="mb-6 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
 			<h2 class="text-2xl font-bold text-gray-800">Reports</h2>
-			<div class="flex gap-2">
+			<div class="flex items-center gap-2">
 				<button
-					class="export-btn"
+					class="flex items-center gap-1.5 rounded-md border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
 					onclick={() => exportReport('csv')}
 					disabled={loading || exporting !== null}
 				>
-					{exporting === 'csv' ? 'Exporting…' : '↓ CSV'}
+					<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+					{exporting === 'csv' ? 'Exporting…' : 'CSV'}
 				</button>
 				<button
-					class="export-btn export-btn--pdf"
+					class="flex items-center gap-1.5 rounded-md bg-blue-900 px-3 py-2 text-sm font-medium text-white shadow-sm transition-colors hover:bg-blue-800 disabled:cursor-not-allowed disabled:opacity-50"
 					onclick={() => exportReport('pdf')}
 					disabled={loading || exporting !== null}
 				>
-					{exporting === 'pdf' ? 'Exporting…' : '↓ PDF'}
+					<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><polyline points="14 2 14 8 20 8"/></svg>
+					{exporting === 'pdf' ? 'Exporting…' : 'PDF'}
 				</button>
-				<button class="refresh-btn" onclick={loadReports} disabled={loading}>
-					{loading ? 'Loading…' : '↻ Refresh'}
+				<button
+					class="flex items-center gap-1.5 rounded-md bg-blue-600 px-3 py-2 text-sm font-medium text-white shadow-sm transition-colors hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
+					onclick={loadReports}
+					disabled={loading}
+				>
+					<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/><path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16"/><path d="M16 21h5v-5"/></svg>
+					{loading ? 'Loading…' : 'Refresh'}
 				</button>
 			</div>
 		</div>
 
 		<!-- ── Filters ─────────────────────────────────────────────────── -->
-		<div class="filter-panel mb-5">
-			<button class="filter-toggle" onclick={() => (filtersOpen = !filtersOpen)}>
-				<span class="filter-toggle__label">
-					⚙ Filters
-					{#if hasActiveFilters}<span class="filter-badge">active</span>{/if}
-				</span>
-				<span class="filter-toggle__caret">{filtersOpen ? '▲' : '▼'}</span>
-			</button>
-
-			{#if filtersOpen}
-				<div class="filter-body">
-					<div class="filter-row">
-						<div class="filter-field">
-							<label class="filter-label">From Date</label>
-							<DatePicker bind:value={dateFrom} clear placeholder="Any start" />
-						</div>
-						<div class="filter-field">
-							<label class="filter-label">To Date</label>
-							<DatePicker bind:value={dateTo} clear placeholder="Any end" />
-						</div>
-						<div class="filter-field">
-							<label class="filter-label">Architect</label>
-							<RichSelect options={architectOptions} bind:value={architectId} clear />
-						</div>
-						<div class="filter-field">
-							<label class="filter-label">Status</label>
-							<RichSelect options={statusOptions} bind:value={statusFilter} clear />
-						</div>
-						<div class="filter-field">
-							<label class="filter-label">Priority</label>
-							<RichSelect options={priorityOptions} bind:value={priorityFilter} clear />
-						</div>
-					</div>
-					<div class="filter-actions">
-						<button class="btn-apply" onclick={loadReports} disabled={loading}>
-							Apply Filters
-						</button>
-						{#if hasActiveFilters}
-							<button class="btn-reset" onclick={resetFilters}> ✕ Reset </button>
-						{/if}
-					</div>
-				</div>
+		<div class="mb-6 flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-3">
+			<Text css="height:100%;" clear bind:value={searchTerm} placeholder="Search..." onchange={handleFilterChange} />
+			<RichSelect options={architectOptions} bind:value={architectId} clear onchange={handleFilterChange} />
+			<RichSelect options={statusOptions} bind:value={statusFilter} clear onchange={handleFilterChange} />
+			<RichSelect options={priorityOptions} bind:value={priorityFilter} clear onchange={handleFilterChange} />
+			<DateRangePicker title="Date Range" placeholder="Pick a range" bind:value={dueRange as any} clear onchange={handleFilterChange} />
+			{#if hasActiveFilters}
+				<button
+					class="flex cursor-pointer items-center gap-1.5 rounded-md border border-gray-300 bg-transparent px-3 py-2 text-sm font-medium text-gray-600 transition-colors hover:bg-gray-50"
+					onclick={resetFilters}
+				>
+					<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6L6 18"/><path d="M6 6l12 12"/></svg>
+					Reset
+				</button>
 			{/if}
 		</div>
 
 		{#if error}
-			<div class="mb-4 rounded-lg border border-red-200 bg-red-50 p-4 text-red-700">
-				Error: {error}
+			<div class="mb-6 rounded-lg border border-red-200 bg-red-50 p-4 text-red-700">
+				<div class="flex items-start gap-3">
+					<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="mt-0.5 flex-shrink-0"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+					<div>
+						<h4 class="font-semibold">Error loading data</h4>
+						<p class="text-sm mt-1">{error}</p>
+					</div>
+				</div>
 			</div>
 		{/if}
 
 		{#if !loading && reports}
-			<!-- ── Summary Cards ──────────────────────────────────────────── -->
-			<div class="stat-cards mb-5">
-				<div class="stat-card stat-card--blue">
-					<div class="stat-value">{totalProjects}</div>
-					<div class="stat-label">Total Projects</div>
+			<div class="mb-5 grid grid-cols-2 gap-3 md:grid-cols-4">
+				<div class="rounded-xl border border-blue-200 bg-blue-50 p-4">
+					<div class="text-3xl font-bold leading-none text-blue-700">{totalProjects}</div>
+					<div class="mt-1.5 text-xs font-medium text-blue-500">Total Projects</div>
 				</div>
-				<div class="stat-card stat-card--green">
-					<div class="stat-value">{completedProjects}</div>
-					<div class="stat-label">Completed</div>
+				<div class="rounded-xl border border-green-200 bg-green-50 p-4">
+					<div class="text-3xl font-bold leading-none text-green-700">{completedProjects}</div>
+					<div class="mt-1.5 text-xs font-medium text-green-500">Completed</div>
 				</div>
-				<div class="stat-card stat-card--slate">
-					<div class="stat-value">{totalTasks}</div>
-					<div class="stat-label">Total Tasks</div>
+				<div class="rounded-xl border border-slate-200 bg-slate-50 p-4">
+					<div class="text-3xl font-bold leading-none text-slate-700">{totalTasks}</div>
+					<div class="mt-1.5 text-xs font-medium text-slate-400">Total Tasks</div>
 				</div>
-				<div class="stat-card {overdueCount > 0 ? 'stat-card--red' : 'stat-card--gray'}">
-					<div class="stat-value">{overdueCount}</div>
-					<div class="stat-label">Overdue Tasks</div>
+				<div class="rounded-xl border p-4 {overdueCount > 0 ? 'border-red-200 bg-red-50' : 'border-gray-200 bg-gray-50'}">
+					<div class="text-3xl font-bold leading-none {overdueCount > 0 ? 'text-red-600' : 'text-gray-400'}">{overdueCount}</div>
+					<div class="mt-1.5 text-xs font-medium {overdueCount > 0 ? 'text-red-500' : 'text-gray-400'}">Overdue Tasks</div>
 				</div>
 			</div>
 
 			<!-- ── Tabs ──────────────────────────────────────────────────── -->
-			<div class="tabs mb-4">
+			<div class="mb-6 flex gap-1 overflow-x-auto border-b border-gray-200">
 				{#each tabs as tab}
 					<button
-						class="tab {activeTab === tab[0] ? 'tab--active' : ''}"
+						class="cursor-pointer border-none bg-transparent px-4 py-3 text-sm font-medium transition-colors {activeTab === tab[0] ? 'border-b-2 border-blue-600 text-blue-700' : 'border-b-2 border-transparent text-gray-600 hover:border-gray-300 hover:text-gray-800'}"
 						onclick={() => (activeTab = tab[0] as typeof activeTab)}
 					>
-						{tab[1]}{tab[0] === 'overdue' && overdueCount > 0 ? ` (${overdueCount})` : ''}
+						{tab[1]}
+						{#if tab[0] === 'overdue' && overdueCount > 0}<span class="ml-2 rounded-full bg-red-100 px-2 py-0.5 text-xs font-semibold text-red-700">{overdueCount}</span>{/if}
 					</button>
 				{/each}
 			</div>
 
 			<!-- ── Tab: Overview ─────────────────────────────────────────── -->
 			{#if activeTab === 'overview'}
-				<div class="overview-grid">
+				<div class="grid grid-cols-1 gap-4 md:grid-cols-2">
 					<!-- Status chart -->
-					<div class="chart-card chart-card--wide">
-						<h3 class="chart-title">Status Distribution</h3>
-						<p class="chart-sub">
-							Projects vs. tasks per status — lighter bars are projects, solid are tasks
-						</p>
-						<div class="chart-area">
+					<div class="overflow-hidden rounded-lg border border-gray-200 bg-white shadow-sm md:col-span-2">
+						<div class="border-b border-gray-100 p-4">
+							<h3 class="text-sm font-semibold text-gray-800">Status Distribution</h3>
+							<p class="mt-1 text-xs text-gray-500">Projects vs. tasks per status — lighter bars are projects, solid are tasks</p>
+						</div>
+						<div class="h-64 p-4">
 							<canvas bind:this={statusCanvas}></canvas>
 						</div>
 					</div>
 
 					<!-- Priority doughnut -->
-					<div class="chart-card">
-						<h3 class="chart-title">Task Priority Mix</h3>
-						<p class="chart-sub">Distribution of tasks by priority level</p>
-						<div class="chart-area">
+					<div class="overflow-hidden rounded-lg border border-gray-200 bg-white shadow-sm md:col-span-1">
+						<div class="border-b border-gray-100 p-4">
+							<h3 class="text-sm font-semibold text-gray-800">Task Priority Mix</h3>
+							<p class="mt-1 text-xs text-gray-500">Distribution of tasks by priority level</p>
+						</div>
+						<div class="flex h-64 items-center justify-center p-4">
 							<canvas bind:this={priorityCanvas}></canvas>
 						</div>
 					</div>
 
 					<!-- Architect workload -->
-					<div class="chart-card chart-card--wide">
-						<h3 class="chart-title">Architect Workload <span class="chart-note">(top 10)</span></h3>
-						<p class="chart-sub">Active tasks vs. overdue tasks per architect</p>
-						<div class="chart-area chart-area--tall">
+					<div class="overflow-hidden rounded-lg border border-gray-200 bg-white shadow-sm md:col-span-2">
+						<div class="border-b border-gray-100 p-4">
+							<h3 class="text-sm font-semibold text-gray-800">Architect Workload <span class="ml-2 text-xs font-normal text-gray-400">(top 10)</span></h3>
+							<p class="mt-1 text-xs text-gray-500">Active tasks vs. overdue tasks per architect</p>
+						</div>
+						<div class="h-80 p-4">
 							<canvas bind:this={workloadCanvas}></canvas>
 						</div>
 					</div>
 
 					<!-- Overdue preview -->
 					{#if reports.overdueTasks.length > 0}
-						<div class="overdue-preview">
-							<h3 class="chart-title text-red-700">⚠ Most Overdue Tasks</h3>
-							<div class="mt-3 space-y-2">
+						<div class="rounded-lg border border-red-100 bg-red-50 p-4 md:col-span-2">
+							<h3 class="flex items-center gap-2 text-sm font-semibold text-red-800">
+								<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+								Most Overdue Tasks
+							</h3>
+							<div class="mt-3 max-h-60 space-y-2 overflow-y-auto pr-1">
 								{#each reports.overdueTasks.slice(0, 5) as task}
-									<div class="overdue-row">
-										<div class="overdue-left">
+									<div class="flex items-center justify-between rounded-md bg-white p-3 shadow-sm">
+										<div class="min-w-0">
 											<span class="font-medium text-gray-800">{task.taskName}</span>
+											<span class="ml-2 inline-block rounded-full px-2 py-0.5 text-xs font-semibold {getStatusColor(task.status)}">{task.status}</span>
 											<span class="ml-2 text-xs text-gray-400">{task.projectName}</span>
 										</div>
-										<div class="overdue-right">
+										<div class="flex shrink-0 items-center gap-2">
 											<span class="text-xs text-gray-500">{task.architectName}</span>
-											<span class="overdue-badge">{task.daysOverdue}d late</span>
+											<span class="rounded-full bg-red-100 px-2 py-0.5 text-xs font-semibold text-red-700">{task.daysOverdue}d late</span>
 										</div>
 									</div>
 								{/each}
 							</div>
 							{#if reports.overdueTasks.length > 5}
 								<button
-									class="mt-3 text-xs text-red-600 underline"
+									class="mt-3 text-xs font-medium text-red-700 underline hover:text-red-800"
 									onclick={() => (activeTab = 'overdue')}
 								>
-									View all {reports.overdueTasks.length} overdue tasks →
+									View all {reports.overdueTasks.length} overdue tasks
 								</button>
 							{/if}
 						</div>
 					{/if}
 				</div>
 
-				<!-- ── Tab: Project Summary ───────────────────────────────────── -->
+			<!-- ── Tab: Project Summary ───────────────────────────────────── -->
 			{:else if activeTab === 'projects'}
 				{#if reports.projectSummary.length === 0}
-					<div class="empty-state">No projects match the current filters.</div>
+					<div class="rounded-lg border border-yellow-200 bg-yellow-50 p-8 text-center">
+						<p class="font-medium text-yellow-700">No projects match the current filters.</p>
+					</div>
 				{:else}
-					<div class="grid-wrapper">
+					<div class="overflow-x-auto rounded-lg border border-gray-200 bg-white shadow-sm">
 						<Grid
 							data={reports.projectSummary}
 							columns={projectColumns}
-							selection="row"
-							autoheight={true}
 						/>
 					</div>
 				{/if}
 
-				<!-- ── Tab: Architect Workload ───────────────────────────────── -->
 			{:else if activeTab === 'architects'}
 				{#if reports.architectWorkload.length === 0}
-					<div class="empty-state">No architects match the current filters.</div>
+					<div class="rounded-lg border border-yellow-200 bg-yellow-50 p-8 text-center">
+						<p class="font-medium text-yellow-700">No architects match the current filters.</p>
+					</div>
 				{:else}
-					<div class="grid-wrapper">
+					<div class="overflow-x-auto rounded-lg border border-gray-200 bg-white shadow-sm">
 						<Grid
 							data={reports.architectWorkload}
 							columns={architectColumns}
-							selection="row"
-							autoheight={true}
 						/>
 					</div>
 				{/if}
 
-				<!-- ── Tab: Overdue Tasks ────────────────────────────────────── -->
 			{:else if activeTab === 'overdue'}
 				{#if reports.overdueTasks.length === 0}
-					<div class="empty-state empty-state--green">
-						✓ No overdue tasks. Everything is on track!
+					<div class="rounded-lg border border-green-200 bg-green-50 p-8 text-center">
+						<p class="flex items-center justify-center gap-2 text-lg font-semibold text-green-800">
+							<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+							No overdue tasks. Everything is on track!
+						</p>
 					</div>
 				{:else}
-					<div class="grid-wrapper">
+					<div class="overflow-x-auto rounded-lg border border-gray-200 bg-white shadow-sm">
 						<Grid
 							data={reports.overdueTasks}
 							columns={overdueColumns}
-							selection="row"
-							autoheight={true}
 						/>
 					</div>
 				{/if}
 			{/if}
 		{:else if loading}
-			<div class="flex h-64 items-center justify-center text-sm text-gray-400">
+			<div class="flex h-64 items-center justify-center">
+				<div class="h-12 w-12 animate-spin rounded-full border-b-2 border-blue-600"></div>
+			</div>
+		{:else}
+			<div class="text-sm text-gray-400">
 				Loading reports…
 			</div>
 		{/if}
 	</div>
 </Willow>
 
-<style>
-	.reports-root {
-		max-width: 98%;
-		padding: 1rem;
-	}
 
-	/* Buttons */
-	.export-btn {
-		padding: 0.4rem 1rem;
-		border-radius: 6px;
-		font-size: 0.8rem;
-		font-weight: 500;
-		border: 1px solid #d1d5db;
-		background: white;
-		color: #374151;
-		cursor: pointer;
-		transition: background 0.15s;
-	}
-	.export-btn:hover:not(:disabled) {
-		background: #f3f4f6;
-	}
-	.export-btn--pdf {
-		background: #1e3a5f;
-		color: white;
-		border-color: #1e3a5f;
-	}
-	.export-btn--pdf:hover:not(:disabled) {
-		background: #1e40af;
-	}
-	.export-btn:disabled {
-		opacity: 0.5;
-		cursor: not-allowed;
-	}
-
-	.refresh-btn {
-		padding: 0.4rem 1rem;
-		border-radius: 6px;
-		font-size: 0.8rem;
-		background: #3b82f6;
-		color: white;
-		border: none;
-		cursor: pointer;
-		transition: background 0.15s;
-	}
-	.refresh-btn:hover:not(:disabled) {
-		background: #2563eb;
-	}
-	.refresh-btn:disabled {
-		opacity: 0.5;
-		cursor: not-allowed;
-	}
-
-	/* Filter panel */
-	.filter-panel {
-		border: 1px solid #e5e7eb;
-		border-radius: 10px;
-		background: white;
-		/* No overflow:hidden — would clip the dropdown popups */
-	}
-	.filter-toggle {
-		width: 100%;
-		display: flex;
-		align-items: center;
-		justify-content: space-between;
-		padding: 0.65rem 1rem;
-		background: #f8fafc;
-		border: none;
-		border-radius: 10px; /* rounds all corners when body is hidden */
-		cursor: pointer;
-		font-size: 0.85rem;
-		font-weight: 500;
-		color: #374151;
-	}
-	.filter-toggle:hover {
-		background: #f1f5f9;
-	}
-	.filter-toggle__label {
-		display: flex;
-		align-items: center;
-		gap: 0.5rem;
-	}
-	.filter-toggle__caret {
-		font-size: 0.65rem;
-		color: #94a3b8;
-	}
-	.filter-badge {
-		background: #3b82f6;
-		color: white;
-		font-size: 0.65rem;
-		padding: 0.1rem 0.4rem;
-		border-radius: 999px;
-		font-weight: 600;
-	}
-	.filter-body {
-		padding: 1rem;
-		border-top: 1px solid #e5e7eb;
-		border-radius: 0 0 10px 10px;
-		position: relative;
-		z-index: 50; /* let dropdowns float above grids and charts below */
-	}
-	.filter-row {
-		display: flex;
-		flex-wrap: wrap;
-		gap: 0.75rem;
-		align-items: flex-end;
-	}
-	.filter-field {
-		display: flex;
-		flex-direction: column;
-		gap: 0.3rem;
-		min-width: 160px;
-		flex: 1;
-	}
-	.filter-label {
-		font-size: 0.73rem;
-		font-weight: 600;
-		color: #6b7280;
-		text-transform: uppercase;
-		letter-spacing: 0.03em;
-	}
-	.filter-actions {
-		display: flex;
-		gap: 0.5rem;
-		margin-top: 0.75rem;
-	}
-	.btn-apply {
-		padding: 0.4rem 1.1rem;
-		background: #1e3a5f;
-		color: white;
-		border: none;
-		border-radius: 6px;
-		font-size: 0.82rem;
-		font-weight: 500;
-		cursor: pointer;
-	}
-	.btn-apply:hover:not(:disabled) {
-		background: #1e40af;
-	}
-	.btn-apply:disabled {
-		opacity: 0.5;
-		cursor: not-allowed;
-	}
-	.btn-reset {
-		padding: 0.4rem 0.9rem;
-		background: transparent;
-		color: #6b7280;
-		border: 1px solid #d1d5db;
-		border-radius: 6px;
-		font-size: 0.82rem;
-		cursor: pointer;
-	}
-	.btn-reset:hover {
-		background: #f3f4f6;
-	}
-
-	/* Stat cards */
-	.stat-cards {
-		display: grid;
-		grid-template-columns: repeat(4, 1fr);
-		gap: 0.85rem;
-	}
-	.stat-card {
-		border-radius: 12px;
-		padding: 1rem 1.2rem;
-		border: 1px solid transparent;
-	}
-	.stat-value {
-		font-size: 2rem;
-		font-weight: 700;
-		line-height: 1;
-	}
-	.stat-label {
-		margin-top: 0.35rem;
-		font-size: 0.78rem;
-		font-weight: 500;
-	}
-	.stat-card--blue {
-		background: #eff6ff;
-		border-color: #bfdbfe;
-	}
-	.stat-card--blue .stat-value {
-		color: #1d4ed8;
-	}
-	.stat-card--blue .stat-label {
-		color: #3b82f6;
-	}
-	.stat-card--green {
-		background: #f0fdf4;
-		border-color: #bbf7d0;
-	}
-	.stat-card--green .stat-value {
-		color: #15803d;
-	}
-	.stat-card--green .stat-label {
-		color: #22c55e;
-	}
-	.stat-card--slate {
-		background: #f8fafc;
-		border-color: #e2e8f0;
-	}
-	.stat-card--slate .stat-value {
-		color: #334155;
-	}
-	.stat-card--slate .stat-label {
-		color: #64748b;
-	}
-	.stat-card--red {
-		background: #fef2f2;
-		border-color: #fecaca;
-	}
-	.stat-card--red .stat-value {
-		color: #dc2626;
-	}
-	.stat-card--red .stat-label {
-		color: #ef4444;
-	}
-	.stat-card--gray {
-		background: #f9fafb;
-		border-color: #e5e7eb;
-	}
-	.stat-card--gray .stat-value {
-		color: #9ca3af;
-	}
-	.stat-card--gray .stat-label {
-		color: #9ca3af;
-	}
-
-	/* Tabs */
-	.tabs {
-		display: flex;
-		gap: 2px;
-		border-bottom: 2px solid #e5e7eb;
-	}
-	.tab {
-		padding: 0.5rem 1rem;
-		font-size: 0.85rem;
-		font-weight: 500;
-		color: #6b7280;
-		border: none;
-		background: transparent;
-		cursor: pointer;
-		border-bottom: 2px solid transparent;
-		margin-bottom: -2px;
-		transition: color 0.15s;
-	}
-	.tab:hover {
-		color: #374151;
-	}
-	.tab--active {
-		color: #2563eb;
-		border-bottom-color: #2563eb;
-	}
-
-	/* Overview grid */
-	.overview-grid {
-		display: grid;
-		grid-template-columns: 1fr 1fr;
-		gap: 1rem;
-	}
-
-	/* Chart cards */
-	.chart-card {
-		background: white;
-		border: 1px solid #e5e7eb;
-		border-radius: 12px;
-		padding: 1.25rem;
-	}
-	.chart-card--wide {
-		grid-column: span 2;
-	}
-	.chart-title {
-		font-size: 0.95rem;
-		font-weight: 600;
-		color: #1e293b;
-	}
-	.chart-note {
-		font-size: 0.75rem;
-		font-weight: 400;
-		color: #94a3b8;
-	}
-	.chart-sub {
-		font-size: 0.75rem;
-		color: #94a3b8;
-		margin-top: 0.2rem;
-		margin-bottom: 0.75rem;
-	}
-	.chart-area {
-		position: relative;
-		height: 220px;
-	}
-	.chart-area--tall {
-		height: 300px;
-	}
-
-	/* Overdue preview */
-	.overdue-preview {
-		grid-column: span 2;
-		background: #fef2f2;
-		border: 1px solid #fecaca;
-		border-radius: 12px;
-		padding: 1.25rem;
-	}
-	.overdue-row {
-		display: flex;
-		align-items: center;
-		justify-content: space-between;
-		background: white;
-		border-radius: 8px;
-		padding: 0.5rem 0.75rem;
-		box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
-	}
-	.overdue-left {
-		display: flex;
-		align-items: baseline;
-		gap: 0.25rem;
-		min-width: 0;
-	}
-	.overdue-right {
-		display: flex;
-		align-items: center;
-		gap: 0.75rem;
-		flex-shrink: 0;
-	}
-	.overdue-badge {
-		background: #fee2e2;
-		color: #dc2626;
-		font-size: 0.72rem;
-		font-weight: 600;
-		padding: 0.15rem 0.5rem;
-		border-radius: 999px;
-	}
-
-	/* Grid wrapper */
-	.grid-wrapper {
-		background: white;
-		border: 1px solid #e5e7eb;
-		border-radius: 12px;
-		overflow: hidden;
-	}
-
-	/* Empty states */
-	.empty-state {
-		padding: 2.5rem;
-		text-align: center;
-		border-radius: 10px;
-		border: 1px solid #fde68a;
-		background: #fffbeb;
-		color: #b45309;
-		font-weight: 500;
-	}
-	.empty-state--green {
-		border-color: #bbf7d0;
-		background: #f0fdf4;
-		color: #15803d;
-	}
-
-	@media (max-width: 768px) {
-		.stat-cards {
-			grid-template-columns: repeat(2, 1fr);
-		}
-		.overview-grid {
-			grid-template-columns: 1fr;
-		}
-		.chart-card--wide {
-			grid-column: span 1;
-		}
-		.overdue-preview {
-			grid-column: span 1;
-		}
-		.filter-row {
-			flex-direction: column;
-		}
-	}
-</style>

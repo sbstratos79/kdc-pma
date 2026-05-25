@@ -6,6 +6,8 @@
 // Dependencies: npm install pdfkit @types/pdfkit
 
 import type { RequestHandler } from '@sveltejs/kit';
+import fs from 'fs';
+import path from 'path';
 import type { ReportFilters } from '$lib/server/db/repos/reports.repo';
 import {
 	getAllReports,
@@ -25,7 +27,8 @@ function extractFilters(url: URL): ReportFilters {
 		dateTo: url.searchParams.get('dateTo') || null,
 		architectId: url.searchParams.get('architectId') || null,
 		status: url.searchParams.get('status') || null,
-		priority: url.searchParams.get('priority') || null
+		priority: url.searchParams.get('priority') || null,
+		search: url.searchParams.get('search') || null
 	};
 }
 
@@ -119,45 +122,75 @@ async function buildPDF(reports: AllReports, section: string): Promise<Buffer> {
 	const PAGE_W = doc.page.width - 100; // usable width with 50px margins each side
 	const NAVY = '#1e3a5f';
 	const SLATE = '#64748b';
+	const GREEN = '#16a34a';
+	const BLUE = '#2563eb';
+	const AMBER = '#d97706';
+	const RED = '#dc2626';
 	const generatedAt = new Date(reports.generatedAt).toLocaleString();
+	const logoPath = path.resolve(process.cwd(), 'static/logo.png');
+
+	// ---- helpers ----
+
+	function statusColor(status: string): string {
+		switch (status) {
+			case 'Completed': return GREEN;
+			case 'In Progress': return BLUE;
+			case 'Planning': return AMBER;
+			case 'On Hold': return SLATE;
+			case 'Cancelled': return RED;
+			default: return SLATE;
+		}
+	}
+
+	function priorityColor(priority: string): string {
+		switch (priority) {
+			case 'High': return RED;
+			case 'Medium': return AMBER;
+			case 'Low': return GREEN;
+			default: return SLATE;
+		}
+	}
 
 	// ---- helpers ----
 
 	function heading(text: string) {
 		doc.moveDown(0.5)
 			.fontSize(13).font('Helvetica-Bold').fillColor(NAVY)
-			.text(text)
+			.text(text, 50, doc.y, { width: PAGE_W })
 			.moveDown(0.3);
 		doc.moveTo(50, doc.y).lineTo(50 + PAGE_W, doc.y).strokeColor('#cbd5e1').lineWidth(1).stroke();
 		doc.moveDown(0.4);
 	}
 
 	function subtext(text: string) {
-		doc.fontSize(8).font('Helvetica').fillColor(SLATE).text(text).moveDown(0.4);
+		doc.fontSize(8).font('Helvetica').fillColor(SLATE).text(text, 50, doc.y, { width: PAGE_W }).moveDown(0.4);
 	}
 
-	function statCard(label: string, value: string | number, x: number, y: number, w: number) {
+	function statCard(label: string, value: string | number, x: number, y: number, w: number, accent: string = NAVY) {
 		doc.rect(x, y, w, 44).fill('#f8fafc');
-		doc.fontSize(18).font('Helvetica-Bold').fillColor(NAVY).text(String(value), x + 8, y + 6, { width: w - 16, align: 'left' });
-		doc.fontSize(8).font('Helvetica').fillColor(SLATE).text(label, x + 8, y + 28, { width: w - 16 });
+		doc.rect(x, y, 3, 44).fill(accent);
+		doc.fontSize(18).font('Helvetica-Bold').fillColor(accent).text(String(value), x + 10, y + 6, { width: w - 18, align: 'left' });
+		doc.fontSize(8).font('Helvetica').fillColor(SLATE).text(label, x + 10, y + 28, { width: w - 18 });
 	}
 
 	function table(
 		headers: string[],
 		rows: string[][],
 		colWidths: number[],
-		startY: number
+		startY: number,
+		cellColors?: (string | undefined)[][]
 	): number {
 		const rowH = 18;
 		let y = startY;
 		const x = 50;
 
 		// Header row
-		doc.rect(x, y, PAGE_W, rowH).fill(NAVY);
-		doc.fill('white').font('Helvetica-Bold').fontSize(7.5);
+		const headerGrad = doc.linearGradient(x, y, x + PAGE_W, y);
+		headerGrad.stop(0, '#dcfce7').stop(1, '#bbf7d0');
+		doc.rect(x, y, PAGE_W, rowH).fill(headerGrad);
+		doc.fill('#1f2937').font('Helvetica-Bold').fontSize(7.5);
 		let cx = x + 4;
 		headers.forEach((h, i) => {
-			// ellipsis: true prevents header text overflowing into the next cell
 			doc.text(h, cx, y + 5, { width: colWidths[i] - 6, lineBreak: false, ellipsis: true });
 			cx += colWidths[i];
 		});
@@ -166,8 +199,7 @@ async function buildPDF(reports: AllReports, section: string): Promise<Buffer> {
 		// Data rows — track page-start y for per-page border segments
 		let segmentStartY = y;
 		rows.forEach((row, ri) => {
-			if (y > doc.page.height - 80) {
-				// Close border segment on current page before flipping
+			if (y > doc.page.height - 80 && ri < rows.length - 1) {
 				doc.rect(x, segmentStartY, PAGE_W, y - segmentStartY)
 					.strokeColor('#cbd5e1').lineWidth(0.5).stroke();
 				doc.addPage();
@@ -178,15 +210,20 @@ async function buildPDF(reports: AllReports, section: string): Promise<Buffer> {
 			doc.fill('#1f2937').font('Helvetica').fontSize(7.5);
 			cx = x + 4;
 			row.forEach((cell, i) => {
+				const color = cellColors?.[ri]?.[i];
+				if (color) doc.fillColor(color);
 				doc.text(fmt(cell), cx, y + 5, { width: colWidths[i] - 6, lineBreak: false, ellipsis: true });
+				if (color) doc.fillColor('#1f2937');
 				cx += colWidths[i];
 			});
 			y += rowH;
 		});
 
 		// Close the final border segment
-		doc.rect(x, segmentStartY, PAGE_W, y - segmentStartY)
-			.strokeColor('#cbd5e1').lineWidth(0.5).stroke();
+		if (y > segmentStartY) {
+			doc.rect(x, segmentStartY, PAGE_W, y - segmentStartY)
+				.strokeColor('#cbd5e1').lineWidth(0.5).stroke();
+		}
 
 		return y + 12;
 	}
@@ -201,9 +238,15 @@ async function buildPDF(reports: AllReports, section: string): Promise<Buffer> {
 	}
 
 	// ---- Cover / Title ----
-	doc.rect(0, 0, doc.page.width, 120).fill(NAVY);
-	doc.fillColor('white').font('Helvetica-Bold').fontSize(24).text('Project Management Report', 50, 38);
-	doc.fontSize(10).font('Helvetica').fillColor('#93c5fd').text(`Generated: ${generatedAt}`, 50, 70);
+	const headerGradient = doc.linearGradient(0, 0, doc.page.width, 0);
+	headerGradient.stop(0, '#ffffff').stop(1, '#f0fdf4');
+	doc.rect(0, 0, doc.page.width, 120).fill(headerGradient);
+	const logoExists = fs.existsSync(logoPath);
+	if (logoExists) {
+		doc.image(logoPath, 50, 38, { width: 55 });
+	}
+	doc.fillColor('#1f2937').font('Helvetica-Bold').fontSize(24).text('Project Management Report', 50 + (logoExists ? 65 : 0), 38);
+	doc.fontSize(10).font('Helvetica').fillColor('#4b5563').text(`Generated: ${generatedAt}`, 50 + (logoExists ? 65 : 0), 66);
 	if (Object.values(reports.appliedFilters).some(Boolean)) {
 		const f = reports.appliedFilters;
 		const parts = [
@@ -213,7 +256,7 @@ async function buildPDF(reports: AllReports, section: string): Promise<Buffer> {
 			f.status && `Status: ${f.status}`,
 			f.priority && `Priority: ${f.priority}`
 		].filter(Boolean).join('  ·  ');
-		doc.fillColor('#bfdbfe').fontSize(8).text(`Filters: ${parts}`, 50, 88);
+		doc.fillColor('#6b7280').fontSize(8).text(`Filters: ${parts}`, 50, 80);
 	}
 	doc.y = 140;
 
@@ -225,18 +268,26 @@ async function buildPDF(reports: AllReports, section: string): Promise<Buffer> {
 	const cardW = Math.floor(PAGE_W / 4) - 4;
 	const cardY = doc.y;
 
-	statCard('Total Projects', totalProjects, 50, cardY, cardW);
-	statCard('Completed Projects', completedProjects, 50 + cardW + 4, cardY, cardW);
-	statCard('Total Tasks', totalTasks, 50 + (cardW + 4) * 2, cardY, cardW);
-	statCard('Overdue Tasks', overdueCount, 50 + (cardW + 4) * 3, cardY, cardW);
+	statCard('Total Projects', totalProjects, 50, cardY, cardW, BLUE);
+	statCard('Completed Projects', completedProjects, 50 + cardW + 4, cardY, cardW, GREEN);
+	statCard('Total Tasks', totalTasks, 50 + (cardW + 4) * 2, cardY, cardW, NAVY);
+	statCard('Overdue Tasks', overdueCount, 50 + (cardW + 4) * 3, cardY, cardW, overdueCount > 0 ? RED : SLATE);
 	doc.y = cardY + 60;
 
 	// ---- Project Summary ----
-	if (section === 'all' || section === 'projects') {
+	if ((section === 'all' || section === 'projects') && reports.projectSummary.length > 0) {
 		pageBreakIfNeeded();
 		heading('Project Status Summary');
 		subtext(`${reports.projectSummary.length} projects`);
 		const colW = [160, 78, 72, 65, 65, 55];
+		const cellColors = reports.projectSummary.map((p) => [
+			undefined,
+			statusColor(p.status),
+			priorityColor(p.priority),
+			undefined,
+			undefined,
+			undefined
+		]);
 		const y = table(
 			['Project', 'Status', 'Priority', 'Due Date', 'Tasks', 'Done %'],
 			reports.projectSummary.map((p) => [
@@ -244,17 +295,17 @@ async function buildPDF(reports: AllReports, section: string): Promise<Buffer> {
 				fmtDate(p.dueDate), fmt(p.totalTasks), `${p.completionRate}%`
 			]),
 			colW,
-			doc.y
+			doc.y,
+			cellColors
 		);
 		doc.y = y;
 	}
 
 	// ---- Architect Workload ----
-	if (section === 'all' || section === 'architects') {
+	if ((section === 'all' || section === 'architects') && reports.architectWorkload.length > 0) {
 		pageBreakIfNeeded();
 		heading('Architect Workload');
 		subtext(`${reports.architectWorkload.length} architects`);
-		// Widths sum to PAGE_W (495). Abbreviate long headers so they fit comfortably.
 		const colW = [150, 52, 52, 58, 88, 95];
 		const y = table(
 			['Architect', 'Total', 'Active', 'Overdue', 'In Prog.', 'Completed'],
@@ -273,27 +324,36 @@ async function buildPDF(reports: AllReports, section: string): Promise<Buffer> {
 		pageBreakIfNeeded();
 		heading('Overdue Tasks');
 		if (reports.overdueTasks.length === 0) {
-			doc.fontSize(9).font('Helvetica').fillColor('#22c55e').text('✓ No overdue tasks.').moveDown();
+			doc.fontSize(9).font('Helvetica').fillColor(GREEN).text('✓ No overdue tasks.').moveDown();
 		} else {
 			subtext(`${reports.overdueTasks.length} tasks past their due date`);
 			const colW = [145, 115, 100, 65, 70];
+			const cellColors = reports.overdueTasks.map((t) => [
+				undefined,
+				undefined,
+				undefined,
+				priorityColor(t.priority),
+				undefined
+			]);
 			const y = table(
 				['Task', 'Project', 'Architect', 'Priority', 'Days Late'],
 				reports.overdueTasks.map((t) => [
 					t.taskName, t.projectName, t.architectName, t.priority, fmt(t.daysOverdue) + 'd'
 				]),
 				colW,
-				doc.y
+				doc.y,
+				cellColors
 			);
 			doc.y = y;
 		}
 	}
 
-	// ---- Page numbers ----
+	// ---- Footer (page numbers + branding) ----
 	const totalPages = (doc as any).bufferedPageRange().count;
 	for (let i = 0; i < totalPages; i++) {
 		doc.switchToPage(i);
 		doc.fontSize(7).font('Helvetica').fillColor(SLATE)
+			.text('KDC Project Management', 50, doc.page.height - 30, { width: PAGE_W / 2, align: 'left' })
 			.text(`Page ${i + 1} of ${totalPages}`, 50, doc.page.height - 30, {
 				align: 'right', width: PAGE_W
 			});

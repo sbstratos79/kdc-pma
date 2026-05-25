@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import { Carousel } from '@ark-ui/svelte/carousel';
-	import { getPriorityGradient, getStatusColor } from '$lib/utils/colorUtils';
+	import { getPriorityGradient, getStatusColor, getStatusBarColor } from '$lib/utils/colorUtils';
 
 	// same stores / pattern used in your other components
 	import { architectsStore, projectsStore, tasksStore } from '$lib/stores';
@@ -162,10 +162,19 @@
 						<!-- slide: responsive fixed width -->
 						<Carousel.Item {index} class="max-h-50 max-w-90 py-2">
 							<div
-								class="flex h-full flex-col rounded-lg border border-neutral-600/20 bg-linear-to-br {getPriorityGradient(
+								class="flex h-full overflow-hidden rounded-lg border border-neutral-600/20 bg-linear-to-br {getPriorityGradient(
 									task.taskPriority
-								)} px-2 py-1 duration-200 md:px-3 md:py-2"
+								)} duration-200"
 							>
+								{#if task.taskStatus}
+									<div
+										class="shrink-0 w-[10px] {getStatusBarColor(
+											task.taskStatus
+										)}"
+									></div>
+									<div class="shrink-0 w-2.5"></div>
+								{/if}
+								<div class="flex flex-col min-w-0 px-2 py-1 md:px-3 md:py-2">
 								<!-- Header with priority dot and title -->
 								<div class="flex items-center gap-2 md:gap-3">
 									<h3 class="truncate text-base font-bold text-gray-900 sm:text-lg md:text-xl">
@@ -212,6 +221,7 @@
 										<p class="text-xs text-gray-500 italic sm:text-sm">Unassigned</p>
 									{/if}
 								</div>
+							</div>
 							</div>
 						</Carousel.Item>
 					{/each}

@@ -4,7 +4,7 @@
 	import { Carousel } from '@ark-ui/svelte/carousel';
 	import { SvelteMap } from 'svelte/reactivity';
 	import { architectsStore, projectsStore, tasksStore } from '$lib/stores';
-	import { getPriorityColor, getPriorityGradient, getStatusColor } from '$lib/utils/colorUtils';
+	import { getPriorityColor, getPriorityGradient, getStatusColor, getStatusBarColor } from '$lib/utils/colorUtils';
 	import { formatDate } from '$lib/utils/dateUtils';
 	import type { Project, Task } from '$lib/types';
 
@@ -426,7 +426,7 @@
 																			</div>
 
 																			<div
-																				class="mb-2 flex items-center justify-between gap-2 text-lg font-medium text-gray-900 lg:text-xl"
+																				class="mb-2 flex items-center justify-between gap-2 text-lg font-medium text-gray-900 lg:text-xl xl:text-2xl"
 																			>
 																				<span>Start: {formatDate(project.projectStartDate)}</span>
 																				<span>Due: {formatDate(project.projectDueDate)}</span>
@@ -434,7 +434,7 @@
 																		</div>
 
 																		{#if project.projectDescription}
-																			<p class="text-md mb-2 truncate text-gray-600 lg:text-xl">
+																			<p class="text-md mb-2 line-clamp-3 text-gray-600 lg:text-xl">
 																				{project.projectDescription}
 																			</p>
 																		{/if}
@@ -447,42 +447,38 @@
 																			class="flex max-h-60 flex-1 flex-col space-y-1 overflow-hidden overflow-y-auto border-t border-gray-200 pr-0.5"
 																		>
 																			<h4
-																				class="mt-1 shrink-0 text-lg font-medium text-gray-900 lg:text-xl"
+																				class="mt-1 shrink-0 text-lg font-medium text-gray-900 lg:text-xl xl:text-2xl"
 																			>
 																				Tasks ({project.tasks.length})
 																			</h4>
 																			{#each project.tasks as task (task.taskId)}
 																				<div
-																					class="flex h-auto max-h-20 w-full flex-col rounded-2xl border border-neutral-600/20 bg-linear-to-br p-2 duration-200 md:p-3 {getPriorityGradient(
+																					class="flex h-auto w-full overflow-hidden rounded-2xl border border-neutral-600/20 bg-linear-to-br duration-200 {getPriorityGradient(
 																						task.taskPriority
 																					)}"
 																				>
-																					<div class="flex items-center justify-between gap-2">
-																						<div class="min-w-0 flex-1">
+																					{#if task.taskStatus}
+																						<div
+																							class="shrink-0 w-[10px] {getStatusBarColor(
+																								task.taskStatus
+																							)}"
+																						></div>
+																						<div class="shrink-0 w-2.5"></div>
+																					{/if}
+																					<div class="flex flex-col min-w-0 p-2 md:p-3">
+																						<p
+																							class="text-md truncate font-medium text-gray-900 lg:text-lg xl:text-xl"
+																						>
+																							{task.taskName}
+																						</p>
+																						{#if task.taskDescription}
 																							<p
-																								class="text-md truncate font-medium text-gray-900 lg:text-lg"
+																								class="lg:text-md line-clamp-3 text-sm text-gray-600 xl:text-base"
 																							>
-																								{task.taskName}
+																								{task.taskDescription}
 																							</p>
-																						</div>
-																						{#if task.taskStatus}
-																							<span
-																								class="lg:text-md ml-2 inline-flex items-center rounded-full border px-2 py-1 text-xs font-medium {getStatusColor(
-																									task.taskStatus
-																								)}"
-																							>
-																								{task.taskStatus}
-																							</span>
 																						{/if}
 																					</div>
-
-																					{#if task.taskDescription}
-																						<p
-																							class="lg:text-md line-clamp-3 text-sm text-gray-600"
-																						>
-																							{task.taskDescription}
-																						</p>
-																					{/if}
 																				</div>
 																			{/each}
 																		</div>

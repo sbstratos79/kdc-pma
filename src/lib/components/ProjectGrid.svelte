@@ -4,7 +4,7 @@
 	import { Carousel } from '@ark-ui/svelte/carousel';
 	import { SvelteMap } from 'svelte/reactivity';
 	import { architectsStore, projectsStore, tasksStore } from '$lib/stores';
-	import { getPriorityColor, getPriorityGradient, getStatusColor } from '$lib/utils/colorUtils';
+	import { getPriorityColor, getPriorityGradient, getStatusColor, getStatusBarColor } from '$lib/utils/colorUtils';
 	import { formatDate } from '$lib/utils/dateUtils';
 	import type { Project, Task } from '$lib/types';
 
@@ -305,61 +305,55 @@
 																		<!-- make each inner-item occupy full width of its carousel viewport -->
 																		<Carousel.Item index={tIndex} class="w-full flex-none">
 																			<div
-																				class="flex h-full min-h-25 w-full flex-col justify-between rounded-2xl border border-neutral-600/20 bg-linear-to-br px-3 py-1 duration-200 md:py-2 {getPriorityGradient(
+																				class="flex h-full min-h-25 w-full overflow-hidden rounded-2xl border border-neutral-600/20 bg-linear-to-br duration-200 {getPriorityGradient(
 																					task.taskPriority
 																				)}"
 																			>
-																				<div class="flex items-center justify-between gap-1">
+																				{#if task.taskStatus}
+																					<div
+																						class="shrink-0 w-[10px] {getStatusBarColor(
+																							task.taskStatus
+																						)}"
+																					></div>
+																					<div class="shrink-0 w-2.5"></div>
+																				{/if}
+																				<div class="flex flex-col justify-between min-w-0 px-3 py-1 md:py-2">
 																					<div class="min-w-0 flex-1">
 																						<p
-																							class="text-md min-w-0 flex-1 items-center truncate font-bold text-gray-900 md:text-lg"
+																							class="text-md min-w-0 flex-1 items-center truncate font-bold text-gray-900 md:text-lg xl:text-xl"
 																						>
 																							{task.taskName}
 																						</p>
 																					</div>
 
-																					<div class="shrink-0">
-																						{#if task.taskStatus}
-																							<span
-																								class="lg:text-md inline-flex items-center rounded-full border px-2 py-1 text-xs font-medium whitespace-nowrap {getStatusColor(
-																									task.taskStatus
-																								)}"
-																							>
-																								{task.taskStatus}
-																							</span>
-																						{/if}
-																					</div>
-																				</div>
-
-																				{#if task.taskDescription}
-																					<p
-																						class="lg:text-md mx-1 line-clamp-3 text-sm text-gray-600"
-																					>
-																						{task.taskDescription}
-																					</p>
-																				{/if}
-
-																				<div
-																					class="text-md mt-1 flex items-center justify-between gap-2 text-gray-800"
-																				>
-																					<span>Start: {formatDate(task.taskStartDate)}</span>
-																					<span>Due: {formatDate(task.taskDueDate)}</span>
-																				</div>
-
-																				<!-- Assigned to (kept) -->
-																				<div class="mt-1 border-t border-gray-200">
-																					{#if task.architectName}
-																						<p class="text-lg text-gray-700">
-																							Assigned to:
-																							<span class="font-bold text-gray-900"
-																								>{task.architectName}</span
-																							>
-																						</p>
-																					{:else}
-																						<p class="text-xs text-gray-500 italic md:text-sm">
-																							Unassigned
+																					{#if task.taskDescription}
+																						<p
+																							class="lg:text-md mx-1 line-clamp-3 text-sm text-gray-600 xl:text-base"
+																						>
+																							{task.taskDescription}
 																						</p>
 																					{/if}
+
+																					<div
+																						class="text-md mt-1 flex items-center justify-between gap-2 text-gray-800 lg:text-lg"
+																					>
+																						<span>Start: {formatDate(task.taskStartDate)}</span>
+																						<span>Due: {formatDate(task.taskDueDate)}</span>
+																					</div>
+
+																					<!-- Assigned to (kept) -->
+																					<div class="mt-1 border-t border-gray-200">
+																						{#if task.architectName}
+																							<p class="text-lg text-gray-700 xl:text-xl">
+																								Assigned to:
+																								<span class="font-bold text-gray-900">{task.architectName}</span>
+																							</p>
+																						{:else}
+																							<p class="text-xs text-gray-500 italic md:text-sm xl:text-base">
+																								Unassigned
+																							</p>
+																						{/if}
+																					</div>
 																				</div>
 																			</div>
 																		</Carousel.Item>

@@ -1,4 +1,4 @@
-// src/lib/server/db/db.ts
+// src/lib/server/db/queries/db.ts
 import 'dotenv/config';
 import { createClient } from '@libsql/client';
 import { drizzle } from 'drizzle-orm/libsql';

@@ -30,6 +30,24 @@ export function getPriorityColor(priority: string | null): string {
   }
 }
 
+export function getStatusBarColor(status: string | null): string {
+  const s = (status ?? '').toLowerCase();
+  switch (s) {
+    case 'completed':
+      return 'bg-gradient-to-b from-green-600 via-green-700 to-green-800';
+    case 'in progress':
+      return 'bg-gradient-to-b from-blue-600 via-blue-700 to-blue-800';
+    case 'planning':
+      return 'bg-gradient-to-b from-amber-600 via-amber-700 to-amber-800';
+    case 'on hold':
+      return 'bg-gradient-to-b from-slate-600 via-slate-700 to-slate-800';
+    case 'cancelled':
+      return 'bg-gradient-to-b from-red-600 via-red-700 to-red-800';
+    default:
+      return 'bg-gradient-to-b from-gray-500 via-gray-600 to-gray-700';
+  }
+}
+
 export function getPriorityGradient(priority: string) {
   switch (priority?.toLowerCase()) {
     case 'high':

@@ -17,7 +17,8 @@ function extractFilters(url: URL): ReportFilters {
 		dateTo: url.searchParams.get('dateTo') || null,
 		architectId: url.searchParams.get('architectId') || null,
 		status: url.searchParams.get('status') || null,
-		priority: url.searchParams.get('priority') || null
+		priority: url.searchParams.get('priority') || null,
+		search: url.searchParams.get('search') || null
 	};
 }
 

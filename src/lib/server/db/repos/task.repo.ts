@@ -22,10 +22,12 @@ export async function createTask(input: TaskInsert): Promise<TaskSelect | null> 
 	);
 	if (!proj) throw new Error('Project not found');
 
-	const arch = await single(
-		db.select().from(architectsTable).where(eq(architectsTable.id, input.architectId)).limit(1)
-	);
-	if (!arch) throw new Error('Architect not found');
+    if (input.architectId) {
+        const arch = await single(
+            db.select().from(architectsTable).where(eq(architectsTable.id, input.architectId)).limit(1)
+        );
+        if (!arch) throw new Error('Architect not found');
+    }
 
 	return single(db.insert(tasks).values(input).returning());
 }

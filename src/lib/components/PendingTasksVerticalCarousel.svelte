@@ -1,10 +1,9 @@
 <script lang="ts">
-	// --- Your existing script EXACTLY as-is ---
 	// (All imports, stores, derived state, onMount logic, etc.)
 	// --------------------------------------------------------
 	import { onMount } from 'svelte';
 	import { Carousel } from '@ark-ui/svelte/carousel';
-	import { getPriorityGradient, getStatusColor } from '$lib/utils/colorUtils';
+	import { getPriorityGradient, getStatusColor, getStatusBarColor } from '$lib/utils/colorUtils';
 
 	import { architectsStore, projectsStore, tasksStore } from '$lib/stores';
 	import { SvelteDate } from 'svelte/reactivity';
@@ -40,15 +39,16 @@
 		});
 	});
 
-	const SLIDE_HEIGHT_PX = 140;
-	const SLIDE_MAX_HEIGHT_PX = 160;
-	const CAROUSEL_SPACING_PX = 6;
+	const SLIDE_HEIGHT_PX = 150;
+	const SLIDE_MAX_HEIGHT_PX = 220;
+	const CAROUSEL_SPACING_PX = 8;
 
 	const getSlideHeight = () => {
 		if (typeof window === 'undefined') return SLIDE_HEIGHT_PX;
 		if (window.innerHeight < 640) return 130;
-		if (window.innerHeight < 1024) return 140;
-		return 150;
+		if (window.innerHeight < 1024) return 150;
+		if (window.innerHeight < 1440) return 170;
+		return 200;
 	};
 
 	let slideHeight = $state(getSlideHeight());
@@ -155,52 +155,51 @@
 									class="carousel-item w-full flex-shrink-0"
 									style="height: {slideHeight}px; min-height: {slideHeight}px; max-height: {slideHeight}px;"
 								>
-									<div
-										class="task-card mx-auto h-full w-full rounded-lg border border-neutral-600/20 bg-gradient-to-br p-2 shadow-sm transition-shadow duration-200 hover:shadow-md {getPriorityGradient(
-											task.taskPriority
-										)}"
-									>
-										<div class="flex h-full flex-col overflow-hidden">
-											<!-- Task Title -->
-											<h3 class="mb-2 line-clamp-2 text-lg font-bold leading-tight text-gray-900">
-												{task.taskName}
-											</h3>
+								<div
+									class="task-card mx-auto h-full w-full flex overflow-hidden rounded-lg border border-neutral-600/20 bg-gradient-to-br shadow-sm transition-shadow duration-200 hover:shadow-md {getPriorityGradient(
+										task.taskPriority
+									)}"
+								>
+									{#if task.taskStatus}
+										<div
+											class="shrink-0 w-[10px] {getStatusBarColor(
+												task.taskStatus
+											)}"
+										></div>
+										<div class="shrink-0 w-2.5"></div>
+									{/if}
+									<div class="flex h-full flex-col overflow-hidden min-w-0 p-2">
+										<!-- Task Title -->
+										<h3 class="mb-2 line-clamp-2 text-lg font-bold leading-tight text-gray-900 lg:text-2xl xl:text-3xl">
+											{task.taskName}
+										</h3>
 
-											<!-- Status and Project Badges -->
+										<!-- Project Badge (status indicated by colored left bar) -->
+										{#if task.projectName}
 											<div class="mb-auto flex flex-wrap gap-2 overflow-hidden">
-												{#if task.taskStatus}
-													<span
-														class="inline-flex items-center rounded-full border px-3 py-1 text-xs font-semibold flex-shrink-0 {getStatusColor(
-															task.taskStatus
-														)}"
-													>
-														{task.taskStatus}
-													</span>
-												{/if}
-												{#if task.projectName}
-													<span
-														class="inline-flex items-center rounded-full border border-purple-200 bg-purple-100 px-3 py-1 text-xs font-semibold text-purple-800 min-w-0 max-w-full"
-														title={task.projectName}
-													>
-														<span class="truncate">{task.projectName}</span>
-													</span>
-												{/if}
+												<span
+													class="inline-flex items-center rounded-full border border-purple-200 bg-purple-100 px-3 py-1 text-xs font-semibold text-purple-800 min-w-0 max-w-full lg:text-sm xl:text-base"
+													title={task.projectName}
+												>
+													<span class="truncate">{task.projectName}</span>
+												</span>
 											</div>
+										{/if}
 
-											<!-- Assignment Info -->
-											<div class="mt-3 flex-shrink-0 border-t border-gray-200 pt-3">
+										<!-- Assignment Info -->
+										<div class="mt-3 flex-shrink-0 border-t border-gray-200 pt-3">
 												{#if task.architectName}
 													<div class="flex items-center gap-2 min-w-0">
-														<span class="text-sm text-gray-600 flex-shrink-0">Assigned to:</span>
+														<span class="text-sm text-gray-600 flex-shrink-0 lg:text-base xl:text-lg">Assigned to:</span>
 														<span
-															class="truncate font-semibold text-gray-900 min-w-0"
+															class="truncate font-semibold text-gray-900 min-w-0 lg:text-base xl:text-lg"
 															title={task.architectName}
 														>
 															{task.architectName}
 														</span>
 													</div>
 												{:else}
-													<p class="text-sm italic text-gray-500">Unassigned</p>
+													<p class="text-sm italic text-gray-500 lg:text-base">Unassigned</p>
 												{/if}
 											</div>
 										</div>

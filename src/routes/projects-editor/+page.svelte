@@ -1,3 +1,5 @@
+<!-- src/routes/projects-editor/+page.svelte -->
+
 <script>
 	import ProjectsTable from '$lib/components/ProjectsTable.svelte';
 </script>
