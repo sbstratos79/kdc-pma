@@ -32,7 +32,6 @@ export async function createTask(input: TaskInsert): Promise<TaskSelect | null> 
 	return single(db.insert(tasks).values(input).returning());
 }
 
-/** Get raw task */
 export async function getTasks(id: string): Promise<TaskSelect | null> {
 	return single(db.select().from(tasks).where(eq(tasks.id, id)).limit(1));
 }
@@ -43,12 +42,11 @@ export async function listTasks(projectId?: string): Promise<TaskSelect[]> {
 	return db.select().from(tasks);
 }
 
-/** Update task */
 export async function updateTask(id: string, changes: TaskUpdate): Promise<TaskSelect | null> {
 	return single(db.update(tasks).set(changes).where(eq(tasks.id, id)).returning());
 }
 
-/** Delete task (transactional hard delete) */
+/** Delete task */
 export async function deleteTaskCascade(id: string): Promise<TaskSelect | null> {
 	return db.transaction(async (tx) => {
 		const deleted = await tx.delete(tasks).where(eq(tasks.id, id)).returning();
@@ -57,7 +55,7 @@ export async function deleteTaskCascade(id: string): Promise<TaskSelect | null> 
 	});
 }
 
-/** Convenience: get task and architect/project names shaped to frontend DTO */
+/** Get task with architect and project names */
 export async function getTask(id: string): Promise<TaskDTO | null> {
 	const t = await getTasks(id);
 	if (!t) return null;

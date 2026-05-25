@@ -132,7 +132,7 @@
 		architectProjectData.filter((a) => a && Array.isArray(a.projects) && a.projects.length > 0)
 	);
 
-	// --- responsive outer carousel styling (same as your "styling" example) ---
+	// responsive outer carousel styling
 
 	// Mobile: 280px, Tablet: 380px, Desktop: 480px
 	const getSlideWidth = () => {

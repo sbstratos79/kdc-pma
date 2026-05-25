@@ -49,23 +49,17 @@ class TTSNotificationService {
 			}
 			this.loadSettings();
 
-			// Don't connect immediately - wait for component to mount
-			// This will be called by the component
+			// component calls init() on mount
 		}
 	}
 
-	/**
-	 * Initialize the service (call this from onMount)
-	 */
+	/** Call from onMount */
 	init() {
 		if (this.isBrowser && !this.eventSource) {
 			this.connectToSSE();
 		}
 	}
 
-	/**
-	 * Connect to Server-Sent Events stream
-	 */
 	private connectToSSE() {
 		if (!this.isBrowser) return;
 
@@ -98,7 +92,6 @@ class TTSNotificationService {
 				this.eventSource?.close();
 				this.eventSource = null;
 
-				// Reconnect after 5 seconds
 				setTimeout(() => {
 					if (this.isBrowser) {
 						console.log('[TTS Client] Reconnecting...');
@@ -111,9 +104,6 @@ class TTSNotificationService {
 		}
 	}
 
-	/**
-	 * Queue an announcement to play
-	 */
 	private queueAnnouncement(assignment: TaskAssignment) {
 		if (!this.settings.enabled) {
 			console.log('[TTS Client] Announcements disabled, skipping');
@@ -128,9 +118,6 @@ class TTSNotificationService {
 		}
 	}
 
-	/**
-	 * Process announcement queue
-	 */
 	private async processQueue() {
 		if (this.isPlaying || this.announcementQueue.length === 0) return;
 
@@ -140,16 +127,12 @@ class TTSNotificationService {
 			const assignment = this.announcementQueue.shift()!;
 			await this.playAnnouncement(assignment);
 
-			// Small delay between announcements
 			await this.delay(500);
 		}
 
 		this.isPlaying = false;
 	}
 
-	/**
-	 * Play a single announcement
-	 */
 	private async playAnnouncement(assignment: TaskAssignment) {
 		const message = `New task for ${assignment.architectName}: ${assignment.taskName} for ${assignment.projectName}. ${assignment.taskDescription}`;
 		console.log('[TTS Client] Playing:', message);
@@ -161,9 +144,6 @@ class TTSNotificationService {
 		}
 	}
 
-	/**
-	 * Initialize browser voice
-	 */
 	private initBrowserVoice() {
 		if (!this.synth) return;
 
@@ -182,9 +162,6 @@ class TTSNotificationService {
 		}
 	}
 
-	/**
-	 * Load settings from localStorage
-	 */
 	private loadSettings() {
 		if (typeof localStorage === 'undefined') return;
 
@@ -200,9 +177,6 @@ class TTSNotificationService {
 		}
 	}
 
-	/**
-	 * Save settings to localStorage
-	 */
 	private saveSettings() {
 		if (typeof localStorage === 'undefined') return;
 
@@ -214,25 +188,16 @@ class TTSNotificationService {
 		}
 	}
 
-	/**
-	 * Get current settings
-	 */
 	getSettings(): TTSSettings {
 		return { ...this.settings };
 	}
 
-	/**
-	 * Update settings
-	 */
 	updateSettings(newSettings: Partial<TTSSettings>) {
 		this.settings = { ...this.settings, ...newSettings };
 		this.saveSettings();
 		console.log('[TTS Client] Updated settings:', this.settings);
 	}
 
-	/**
-	 * Announce using browser TTS
-	 */
 	private announceWithBrowser(message: string): Promise<void> {
 		return new Promise((resolve) => {
 			if (!this.synth) {
@@ -267,9 +232,6 @@ class TTSNotificationService {
 		});
 	}
 
-	/**
-	 * Announce using Server TTS (Edge TTS)
-	 */
 	private async announceWithServerTTS(message: string): Promise<void> {
 		try {
 			const response = await fetch('/api/tts', {
@@ -291,7 +253,6 @@ class TTSNotificationService {
 			return new Promise((resolve, reject) => {
 				const audioElement = new Audio(`data:${contentType};base64,${audio}`);
 				audioElement.autoplay = true;
-				// audioElement.muted = true;
 				audioElement.playbackRate = this.settings.speed;
 
 				audioElement.onended = () => {
@@ -305,7 +266,7 @@ class TTSNotificationService {
 				};
 
 				audioElement.play().catch(() => {
-					// fallback: listen for user gesture then play
+					// fallback: wait for user gesture
 					window.addEventListener(
 						'click',
 						() => {
@@ -322,16 +283,10 @@ class TTSNotificationService {
 		}
 	}
 
-	/**
-	 * Helper delay function
-	 */
 	private delay(ms: number): Promise<void> {
 		return new Promise((resolve) => setTimeout(resolve, ms));
 	}
 
-	/**
-	 * Enable or disable TTS
-	 */
 	setEnabled(enabled: boolean) {
 		this.settings.enabled = enabled;
 		this.saveSettings();
@@ -342,9 +297,6 @@ class TTSNotificationService {
 		}
 	}
 
-	/**
-	 * Stop all ongoing TTS
-	 */
 	private stopAll() {
 		if (this.synth) {
 			this.synth.cancel();
@@ -353,24 +305,15 @@ class TTSNotificationService {
 		this.isPlaying = false;
 	}
 
-	/**
-	 * Check if TTS is available
-	 */
 	isAvailable(): boolean {
 		return this.synth !== null || this.audioContext !== null;
 	}
 
-	/**
-	 * Get available browser voices
-	 */
 	getBrowserVoices(): SpeechSynthesisVoice[] {
 		if (!this.synth) return [];
 		return this.synth.getVoices().filter((v) => v.lang.startsWith('en'));
 	}
 
-	/**
-	 * Test the TTS
-	 */
 	async test() {
 		await this.playAnnouncement({
 			taskId: 'test',
@@ -382,9 +325,6 @@ class TTSNotificationService {
 		});
 	}
 
-	/**
-	 * Disconnect SSE
-	 */
 	disconnect() {
 		if (this.eventSource) {
 			this.eventSource.close();
@@ -395,5 +335,4 @@ class TTSNotificationService {
 	}
 }
 
-// Export singleton instance
 export const ttsNotificationService = new TTSNotificationService();

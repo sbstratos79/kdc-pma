@@ -12,14 +12,12 @@ import {
 	deleteProjectCascade
 } from '$lib/server/db/repos/project.repo';
 
-// Helper: validate ISO date strings
 function isValidDate(dateString: string | null | undefined): boolean {
 	if (!dateString) return true;
 	const d = new Date(dateString);
 	return !isNaN(d.getTime());
 }
 
-// Map repo DTO
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function ensureProjectDto(p: any): Project {
 	return {
@@ -40,7 +38,6 @@ export const GET: RequestHandler = async ({ url }) => {
 	try {
 		const id = url.searchParams.get('id');
 
-		// If id provided, fetch single project
 		if (id) {
 			const dto = await repoGetProjects(id);
 			if (!dto) {
@@ -49,7 +46,6 @@ export const GET: RequestHandler = async ({ url }) => {
 			return json({ data: ensureProjectDto(dto) });
 		}
 
-		// Otherwise fetch all projects
 		const raw = await repoListProjects();
 		const projects = raw.map((r) => ensureProjectDto(r));
 		return json({ data: projects });
@@ -64,7 +60,7 @@ export const POST: RequestHandler = async ({ request }) => {
 	try {
 		const body = await request.json();
 
-		// Accept either { name, ... } or your frontend Project-shaped fields
+		// Accept either { name, ... } or frontend Project-shaped fields
 		const projectId =
 			// eslint-disable-next-line @typescript-eslint/no-explicit-any
 			globalThis.crypto && (crypto as any).randomUUID

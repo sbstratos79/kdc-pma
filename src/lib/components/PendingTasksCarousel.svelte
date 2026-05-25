@@ -3,7 +3,7 @@
 	import { Carousel } from '@ark-ui/svelte/carousel';
 	import { getPriorityGradient, getStatusColor, getStatusBarColor } from '$lib/utils/colorUtils';
 
-	// same stores / pattern used in your other components
+	// same stores and pattern used in other components
 	import { architectsStore, projectsStore, tasksStore } from '$lib/stores';
 	import { SvelteDate } from 'svelte/reactivity';
 	import type { Architect, Project, Task } from '$lib/types';

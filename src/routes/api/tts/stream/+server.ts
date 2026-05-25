@@ -8,7 +8,6 @@ export const GET: RequestHandler = async () => {
 			const encoder = new TextEncoder();
 			let isClosed = false;
 
-			// Helper to safely enqueue
 			const safeEnqueue = (data: Uint8Array) => {
 				if (!isClosed) {
 					try {
@@ -20,10 +19,8 @@ export const GET: RequestHandler = async () => {
 				}
 			};
 
-			// Send initial connection message
 			safeEnqueue(encoder.encode('data: {"type":"connected"}\n\n'));
 
-			// Listen for announcements
 			// eslint-disable-next-line @typescript-eslint/no-explicit-any
 			const handleAnnouncement = (assignment: any) => {
 				const message = `data: ${JSON.stringify({
@@ -40,7 +37,6 @@ export const GET: RequestHandler = async () => {
 				safeEnqueue(encoder.encode(': keep-alive\n\n'));
 			}, 30000);
 
-			// Cleanup function
 			const cleanup = () => {
 				isClosed = true;
 				ttsQueueManager.off('announcement', handleAnnouncement);
@@ -48,7 +44,6 @@ export const GET: RequestHandler = async () => {
 				console.log('[TTS SSE] Client disconnected');
 			};
 
-			// Handle client disconnect
 			return cleanup;
 		},
 		cancel() {

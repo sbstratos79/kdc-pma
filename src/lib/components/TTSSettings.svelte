@@ -113,7 +113,7 @@
 				{#if ttsAvailable}
 					Get spoken notifications when new tasks are assigned
 				{:else}
-					Text-to-speech is not available in your browser
+					Text-to-speech is not available in this browser
 				{/if}
 			</p>
 		</div>

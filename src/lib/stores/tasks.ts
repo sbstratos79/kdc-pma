@@ -20,13 +20,12 @@ function createTasksStore() {
 	const store: Writable<State> = writable(makeInitial());
 	let isInitialLoad = true;
 
-	// CRITICAL: Store references to enrichment data
+	// enrichment cache
 	// eslint-disable-next-line @typescript-eslint/no-explicit-any
 	let cachedArchitectsById: Record<string, any> = {};
 	// eslint-disable-next-line @typescript-eslint/no-explicit-any
 	let cachedProjectsById: Record<string, any> = {};
 
-	// Map API response to Task DTO
 	// eslint-disable-next-line @typescript-eslint/no-explicit-any
 	function mapApiResponseToTask(apiTask: any): Task {
 		return {
@@ -63,14 +62,12 @@ function createTasksStore() {
 			// eslint-disable-next-line @typescript-eslint/no-explicit-any
 			const rawData = Array.isArray(result) ? result : (result as any)?.data || [];
 
-			// CRITICAL: Enrich immediately during mapping
 			const data = rawData.map((item) => enrichTask(mapApiResponseToTask(item)));
 
 			const byId: Record<string, Task> = {};
 			data.forEach((t: Task) => (byId[t.taskId] = t));
 			store.set({ loading: false, error: null, list: data, byId });
 
-			// Notify server about current tasks (server handles TTS logic)
 			await notifyServerAboutTasks(data, isInitialLoad);
 
 			if (isInitialLoad) {
@@ -85,7 +82,6 @@ function createTasksStore() {
 		}
 	}
 
-	// Notify server about tasks for TTS handling
 	async function notifyServerAboutTasks(tasks: Task[], initialize = false) {
 		try {
 			await fetch('/api/tts/check', {
@@ -98,14 +94,12 @@ function createTasksStore() {
 		}
 	}
 
-	// Update cached enrichment data and re-enrich existing tasks
+	// update enrichment cache and re-enrich
 	// eslint-disable-next-line @typescript-eslint/no-explicit-any
 	function loadWithNames(architectsById: Record<string, any>, projectsById: Record<string, any>) {
-		// Update cache
 		cachedArchitectsById = architectsById;
 		cachedProjectsById = projectsById;
 
-		// Re-enrich existing tasks in-place
 		store.update((s) => {
 			s.list.forEach((task) => {
 				if (task.architectId && architectsById[task.architectId]) {
@@ -116,11 +110,9 @@ function createTasksStore() {
 				}
 			});
 
-			// Rebuild byId with enriched tasks
 			const byId: Record<string, Task> = {};
 			s.list.forEach((t: Task) => (byId[t.taskId] = t));
 
-			// Notify server after enrichment
 			notifyServerAboutTasks(s.list);
 
 			return { ...s, byId };
@@ -136,7 +128,6 @@ function createTasksStore() {
 		return get(store).byId[id] ?? null;
 	}
 
-	// local optimistic helpers
 	function addLocal(item: Task) {
 		store.update((s) => {
 			const enriched = enrichTask(item);
@@ -166,7 +157,6 @@ function createTasksStore() {
 		});
 	}
 
-	// CRUD API calls
 	async function create(payload: {
 		taskId: string;
 		taskName: string;
@@ -210,7 +200,6 @@ function createTasksStore() {
 			const created = json?.data as any;
 			const mappedTask = mapApiResponseToTask(created);
 
-			// Replace temp with real task
 			removeLocal(payload.taskId);
 			if (mappedTask) addLocal(mappedTask);
 

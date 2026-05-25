@@ -10,7 +10,7 @@ type State = {
 	byId: Record<string, Project>;
 };
 
-const fetcher = createFetcher<Project[]>('/api/projects', 5000); // 5seconds TTL
+const fetcher = createFetcher<Project[]>('/api/projects', 5000);
 
 function makeInitial(): State {
 	return { loading: false, error: null, list: [], byId: {} };
@@ -19,7 +19,6 @@ function makeInitial(): State {
 function createProjectsStore() {
 	const store: Writable<State> = writable(makeInitial());
 
-	// Map API response to Project DTO
 	// eslint-disable-next-line @typescript-eslint/no-explicit-any
 	function mapApiResponseToProject(apiProject: any): Project {
 		return {
@@ -62,7 +61,6 @@ function createProjectsStore() {
 		return get(store).byId[id] ?? null;
 	}
 
-	// local optimistic helpers
 	function addLocal(item: Project) {
 		store.update((s) => {
 			const list = [...s.list, item];
@@ -91,7 +89,6 @@ function createProjectsStore() {
 		});
 	}
 
-	// CRUD API calls
 	async function create(payload: {
 		projectId: string;
 		projectName: string;
@@ -130,7 +127,6 @@ function createProjectsStore() {
 			const created = json?.data as any;
 			const mappedProject = mapApiResponseToProject(created);
 
-			// Replace temp with real project
 			removeLocal(payload.projectId);
 			if (mappedProject) addLocal(mappedProject);
 

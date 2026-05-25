@@ -12,17 +12,14 @@ import {
 	deleteTaskCascade
 } from '$lib/server/db/repos/task.repo';
 
-// Helper: validate ISO date strings (simple)
 function isValidDate(dateString: string | null | undefined): boolean {
 	if (!dateString) return true; // treat empty as okay (optional)
 	const d = new Date(dateString);
 	return !isNaN(d.getTime());
 }
 
-// Map repo DTO (already shaped by getTask) passthrough
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function ensureTaskDto(t: any): Task {
-	// Minimal normalization – your getTask returns correct shape already
 	return {
 		architectId: t.architectId ?? null,
 		architectName: t.architectName ?? '',
@@ -44,7 +41,6 @@ export const GET: RequestHandler = async ({ url }) => {
 	try {
 		const id = url.searchParams.get('id');
 
-		// If id provided, fetch single task
 		if (id) {
 			const dto = await repoGetTask(id);
 			if (!dto) {
@@ -53,7 +49,6 @@ export const GET: RequestHandler = async ({ url }) => {
 			return json({ data: dto });
 		}
 
-		// Otherwise fetch all tasks
 		const raw = await repoListTasks();
 		const tasks: Task[] = [];
 		for (const r of raw) {
@@ -71,7 +66,7 @@ export const GET: RequestHandler = async ({ url }) => {
 export const POST: RequestHandler = async ({ request }) => {
 	try {
 		const body = await request.json();
-		// Accept either { name, ... } or your frontend Task-shaped fields
+		// Accept either { name, ... } or frontend Task-shaped fields
 		const taskId =
 			// eslint-disable-next-line @typescript-eslint/no-explicit-any
 			globalThis.crypto && (crypto as any).randomUUID
@@ -114,7 +109,6 @@ export const POST: RequestHandler = async ({ request }) => {
 			return json({ error: 'Failed to create task' }, { status: 500 });
 		}
 
-		// Return full DTO
 		const dto = await repoGetTask(created.id);
 		return json({ data: dto ?? ensureTaskDto(created) }, { status: 201 });
 	} catch (err) {
@@ -125,11 +119,8 @@ export const POST: RequestHandler = async ({ request }) => {
 
 // PUT /api/tasks/:id
 export const PUT: RequestHandler = async ({ request, url }) => {
-	// SvelteKit uses route params if file is +server.ts in [id] route; since this file is +server.ts in /api/tasks,
-	// the TaskGrid makes PUT to /api/tasks/:id – but this handler receives the raw request.
-	// If you prefer param routes, create file src/routes/api/tasks/[id]/+server.ts instead.
+	// Single-file handler for PUT /api/tasks/:id — reads id from URL path or body
 	try {
-		// Try to read id from URL path last segment if present
 		const pathParts = new URL(url).pathname.split('/').filter(Boolean);
 		const idFromPath = pathParts[pathParts.length - 1];
 		const body = await request.json();

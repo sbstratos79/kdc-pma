@@ -12,7 +12,6 @@ import {
 	deleteArchitect
 } from '$lib/server/db/repos/architect.repo';
 
-// Map repo DTO
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function ensureArchitectDto(a: any): Architect {
 	return {
@@ -27,7 +26,6 @@ export const GET: RequestHandler = async ({ url }) => {
 	try {
 		const id = url.searchParams.get('id');
 
-		// If id provided, fetch single architect
 		if (id) {
 			const dto = await repoGetArchitects(id);
 			if (!dto) {
@@ -36,7 +34,6 @@ export const GET: RequestHandler = async ({ url }) => {
 			return json({ data: ensureArchitectDto(dto) });
 		}
 
-		// Otherwise fetch all architects
 		const raw = await repoListArchitects();
 		const architects = raw.map((r) => ensureArchitectDto(r));
 		return json({ data: architects });
@@ -51,7 +48,7 @@ export const POST: RequestHandler = async ({ request }) => {
 	try {
 		const body = await request.json();
 
-		// Accept either { name, ... } or your frontend Architect-shaped fields
+		// Accept either { name, ... } or frontend Architect-shaped fields
 		const architectId =
 			// eslint-disable-next-line @typescript-eslint/no-explicit-any
 			globalThis.crypto && (crypto as any).randomUUID

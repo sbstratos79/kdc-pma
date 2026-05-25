@@ -26,9 +26,6 @@ class TTSQueueManager extends EventEmitter {
 		console.log('[TTS Queue] Manager initialized at', new Date(this.serverStartTime).toISOString());
 	}
 
-	/**
-	 * Initialize with existing tasks (mark as seen, don't announce)
-	 */
 	// eslint-disable-next-line @typescript-eslint/no-explicit-any
 	initialize(tasks: any[]) {
 		if (this.initialized) return;
@@ -43,9 +40,6 @@ class TTSQueueManager extends EventEmitter {
 		console.log(`[TTS Queue] Initialized with ${this.seenTaskIds.size} existing tasks`);
 	}
 
-	/**
-	 * Check for new assignments and queue them
-	 */
 	// eslint-disable-next-line @typescript-eslint/no-explicit-any
 	checkForNewAssignments(tasks: any[]) {
 		if (!this.initialized) {
@@ -93,14 +87,10 @@ class TTSQueueManager extends EventEmitter {
 		}
 	}
 
-	/**
-	 * Add announcements to queue
-	 */
 	private queueAnnouncements(assignments: TaskAssignment[]) {
 		this.announcementQueue.push(...assignments);
 		console.log(`[TTS Queue] Queue size: ${this.announcementQueue.length}`);
 
-		// Emit event for all connected clients
 		assignments.forEach((assignment) => {
 			this.emit('announcement', assignment);
 		});
@@ -111,9 +101,6 @@ class TTSQueueManager extends EventEmitter {
 		}
 	}
 
-	/**
-	 * Process announcements one by one with delays
-	 */
 	private async processQueue() {
 		if (this.isProcessing || this.announcementQueue.length === 0) return;
 
@@ -125,7 +112,6 @@ class TTSQueueManager extends EventEmitter {
 
 			console.log('[TTS Queue] Processing announcement:', assignment);
 
-			// Emit to clients to play the announcement
 			this.emit('play-announcement', assignment);
 
 			// Wait for estimated speech duration + buffer
@@ -144,16 +130,10 @@ class TTSQueueManager extends EventEmitter {
 		console.log('[TTS Queue] Queue processing complete');
 	}
 
-	/**
-	 * Helper delay function
-	 */
 	private delay(ms: number): Promise<void> {
 		return new Promise((resolve) => setTimeout(resolve, ms));
 	}
 
-	/**
-	 * Get queue status
-	 */
 	getStatus() {
 		return {
 			queueLength: this.announcementQueue.length,
@@ -164,17 +144,12 @@ class TTSQueueManager extends EventEmitter {
 		};
 	}
 
-	/**
-	 * Clear seen tasks (for testing)
-	 */
+	/** For testing */
 	clearSeenTasks() {
 		this.seenTaskIds.clear();
 		console.log('[TTS Queue] Cleared seen tasks');
 	}
 
-	/**
-	 * Reset queue
-	 */
 	resetQueue() {
 		this.announcementQueue = [];
 		this.isProcessing = false;
@@ -182,5 +157,4 @@ class TTSQueueManager extends EventEmitter {
 	}
 }
 
-// Export singleton
 export const ttsQueueManager = new TTSQueueManager();

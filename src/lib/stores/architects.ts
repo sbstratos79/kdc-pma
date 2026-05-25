@@ -10,7 +10,7 @@ type State = {
 	byId: Record<string, Architect>;
 };
 
-const fetcher = createFetcher<Architect[]>('/api/architects', 5000); // 5seconds TTL
+const fetcher = createFetcher<Architect[]>('/api/architects', 5000);
 
 function makeInitial(): State {
 	return { loading: false, error: null, list: [], byId: {} };
@@ -19,7 +19,6 @@ function makeInitial(): State {
 function createArchitectsStore() {
 	const store: Writable<State> = writable(makeInitial());
 
-	// Map API response to Architect DTO
 	// eslint-disable-next-line @typescript-eslint/no-explicit-any
 	function mapApiResponseToArchitect(apiArchitect: any): Architect {
 		return {
@@ -56,7 +55,6 @@ function createArchitectsStore() {
 		return get(store).byId[id] ?? null;
 	}
 
-	// local optimistic helpers
 	function addLocal(item: Architect) {
 		store.update((s) => {
 			const list = [...s.list, item];
@@ -85,7 +83,6 @@ function createArchitectsStore() {
 		});
 	}
 
-	// CRUD API calls
 	async function create(payload: { architectId: string; architectName: string }) {
 		const temp: Architect = {
 			architectId: payload.architectId,
@@ -110,7 +107,6 @@ function createArchitectsStore() {
 			const created = json?.data as any;
 			const mappedArchitect = mapApiResponseToArchitect(created);
 
-			// Replace temp with real architect
 			removeLocal(payload.architectId);
 			if (mappedArchitect) addLocal(mappedArchitect);
 
