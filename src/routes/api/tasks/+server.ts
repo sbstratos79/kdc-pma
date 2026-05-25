@@ -6,7 +6,7 @@ import type { Task } from '$lib/types';
 
 import {
 	createTask as repoCreateTask,
-	getTasks as repoGetTasks,
+	getTask as repoGetTask,
 	listTasks as repoListTasks,
 	updateTask as repoUpdateTask,
 	deleteTaskCascade
@@ -20,19 +20,20 @@ function isValidDate(dateString: string | null | undefined): boolean {
 }
 
 // Map repo DTO (already shaped by getTask) passthrough
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 function ensureTaskDto(t: any): Task {
 	// Minimal normalization – your getTask returns correct shape already
 	return {
-		architectId: t.architectId ?? '',
+		architectId: t.architectId ?? null,
 		architectName: t.architectName ?? '',
-		taskId: t.taskId ?? '',
-		taskName: t.taskName ?? '',
-		taskDescription: t.taskDescription ?? null,
-		taskStartDate: t.taskStartDate ?? null,
-		addedTime: t.addedtime ?? null,
-		taskDueDate: t.taskDueDate ?? null,
-		taskStatus: t.taskStatus ?? '',
-		taskPriority: t.taskPriority ?? '',
+		taskId: t.id ?? t.taskId ?? '',
+		taskName: t.name ?? t.taskName ?? '',
+		taskDescription: t.description ?? t.taskDescription ?? null,
+		taskStartDate: t.startDate ?? t.taskStartDate ?? null,
+		addedTime: t.addedTime ?? null,
+		taskDueDate: t.dueDate ?? t.taskDueDate ?? null,
+		taskStatus: t.status ?? t.taskStatus ?? '',
+		taskPriority: t.priority ?? t.taskPriority ?? '',
 		projectId: t.projectId ?? '',
 		projectName: t.projectName ?? ''
 	};
@@ -45,7 +46,7 @@ export const GET: RequestHandler = async ({ url }) => {
 
 		// If id provided, fetch single task
 		if (id) {
-			const dto = await repoGetTasks(id);
+			const dto = await repoGetTask(id);
 			if (!dto) {
 				return json({ error: 'Task not found' }, { status: 404 });
 			}
@@ -53,11 +54,10 @@ export const GET: RequestHandler = async ({ url }) => {
 		}
 
 		// Otherwise fetch all tasks
-		const raw = await repoListTasks(); // returns TaskSelect[] (rows)
-		// For performance you may want to implement a single joined query; for now do per-task DTO mapping
+		const raw = await repoListTasks();
 		const tasks: Task[] = [];
 		for (const r of raw) {
-			const dto = await repoGetTasks(r.id);
+			const dto = await repoGetTask(r.id);
 			if (dto) tasks.push(dto);
 		}
 		return json({ data: tasks });
@@ -73,8 +73,10 @@ export const POST: RequestHandler = async ({ request }) => {
 		const body = await request.json();
 		// Accept either { name, ... } or your frontend Task-shaped fields
 		const taskId =
+			// eslint-disable-next-line @typescript-eslint/no-explicit-any
 			globalThis.crypto && (crypto as any).randomUUID
-				? (crypto as any).randomUUID()
+				? // eslint-disable-next-line @typescript-eslint/no-explicit-any
+					(crypto as any).randomUUID()
 				: String(Date.now()) + Math.random();
 
 		const taskName = (body.name ?? body.taskName ?? '').trim();
@@ -113,7 +115,7 @@ export const POST: RequestHandler = async ({ request }) => {
 		}
 
 		// Return full DTO
-		const dto = await repoGetTasks(created.id);
+		const dto = await repoGetTask(created.id);
 		return json({ data: dto ?? ensureTaskDto(created) }, { status: 201 });
 	} catch (err) {
 		console.error('POST /api/tasks error', err);
@@ -122,7 +124,7 @@ export const POST: RequestHandler = async ({ request }) => {
 };
 
 // PUT /api/tasks/:id
-export const PUT: RequestHandler = async ({ request, params, url }) => {
+export const PUT: RequestHandler = async ({ request, url }) => {
 	// SvelteKit uses route params if file is +server.ts in [id] route; since this file is +server.ts in /api/tasks,
 	// the TaskGrid makes PUT to /api/tasks/:id – but this handler receives the raw request.
 	// If you prefer param routes, create file src/routes/api/tasks/[id]/+server.ts instead.
@@ -138,6 +140,7 @@ export const PUT: RequestHandler = async ({ request, params, url }) => {
 			return json({ error: 'Missing id or data in request' }, { status: 400 });
 		}
 
+		// eslint-disable-next-line @typescript-eslint/no-explicit-any
 		const changes: any = {};
 		if ('taskName' in data) changes.name = (data.taskName || '').trim();
 		if ('taskDescription' in data) changes.description = data.taskDescription ?? null;
@@ -153,8 +156,8 @@ export const PUT: RequestHandler = async ({ request, params, url }) => {
 		}
 		if ('taskStatus' in data) changes.status = data.taskStatus;
 		if ('taskPriority' in data) changes.priority = data.taskPriority;
-		if ('projectId' in data) changes.projectId = String(data.projectId);
-		if ('architectId' in data) changes.architectId = String(data.architectId);
+		if ('projectId' in data) changes.projectId = data.projectId;
+		if ('architectId' in data) changes.architectId = data.architectId;
 
 		const updated = await repoUpdateTask(String(id), changes);
 
@@ -162,7 +165,7 @@ export const PUT: RequestHandler = async ({ request, params, url }) => {
 			return json({ error: 'Task not found or not updated' }, { status: 404 });
 		}
 
-		const dto = await repoGetTasks(updated.id);
+		const dto = await repoGetTask(updated.id);
 		return json({ data: dto ?? ensureTaskDto(updated) });
 	} catch (err) {
 		console.error('PUT /api/tasks error', err);

@@ -1,5 +1,24 @@
 // src/lib/services/ttsNotificationService.ts
 
+type TTSSettings = {
+	engine: 'browser' | 'server';
+	enabled: boolean;
+	speed: number;
+	browserVoice: string | null;
+	serverVoice: string;
+};
+
+type TaskAssignment = {
+	taskId: string;
+	taskName: string;
+	taskDescription: string | null;
+	architectId: string;
+	architectName: string;
+	projectName: string;
+};
+
+export type ServerTTSVoice = string;
+
 class TTSNotificationService {
 	private synth: SpeechSynthesis | null = null;
 	private settings: TTSSettings = {
@@ -23,7 +42,9 @@ class TTSNotificationService {
 				this.synth = window.speechSynthesis;
 				this.initBrowserVoice();
 			}
+			// eslint-disable-next-line @typescript-eslint/no-explicit-any
 			if ('AudioContext' in window || 'webkitAudioContext' in (window as any)) {
+				// eslint-disable-next-line @typescript-eslint/no-explicit-any
 				this.audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
 			}
 			this.loadSettings();
@@ -130,7 +151,7 @@ class TTSNotificationService {
 	 * Play a single announcement
 	 */
 	private async playAnnouncement(assignment: TaskAssignment) {
-		  const message = `New task for ${assignment.architectName}: ${assignment.taskName} for ${assignment.projectName}. ${assignment.taskDescription}`;
+		const message = `New task for ${assignment.architectName}: ${assignment.taskName} for ${assignment.projectName}. ${assignment.taskDescription}`;
 		console.log('[TTS Client] Playing:', message);
 
 		if (this.settings.engine === 'server') {
@@ -354,6 +375,7 @@ class TTSNotificationService {
 		await this.playAnnouncement({
 			taskId: 'test',
 			taskName: 'Test Task',
+			taskDescription: null,
 			architectId: 'test-arch',
 			architectName: 'John Doe',
 			projectName: 'Test Project'

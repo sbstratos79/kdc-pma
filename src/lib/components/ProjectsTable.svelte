@@ -16,7 +16,11 @@
 	let dataToEdit = $state<Project | null>(null);
 
 	// Reactive state from stores - use $derived with store snapshots
-	let projectsState = $state({ list: [], loading: true, error: null });
+	let projectsState = $state({
+		list: [] as Project[],
+		loading: true,
+		error: null as string | null
+	});
 
 	// Subscribe to stores
 	$effect(() => {
@@ -39,7 +43,7 @@
 	let searchTerm = $state('');
 	let statusFilter = $state('all');
 	let priorityFilter = $state('all');
-	let dueRange = $state<{ start: Date | null; end: Date | null }>({ start: null, end: null });
+	let dueRange = $state({ start: null as Date | null, end: null as Date | null });
 
 	// ----------------------
 	// Load initial data on mount
@@ -48,7 +52,8 @@
 		try {
 			// Load all data in parallel
 
-			await Promise.all([
+			// eslint-disable-next-line @typescript-eslint/no-explicit-any
+			await Promise.all<any>([
 				enumsStore.load().then((r) => {
 					return r;
 				}),
@@ -145,6 +150,7 @@
 	]);
 
 	// Initialize grid API and event handlers
+	// eslint-disable-next-line @typescript-eslint/no-explicit-any
 	const init = (gridApi: any) => {
 		api = gridApi;
 
@@ -265,8 +271,8 @@
 					projectId: '',
 					projectName: values.projectName,
 					projectDescription: values.projectDescription || null,
-					projectStartDate: dateToIso(values.projectStartDate as any) || null,
-					projectDueDate: dateToIso(values.projectDueDate as any) || null,
+					projectStartDate: dateToIso(values.projectStartDate ?? null) || null,
+					projectDueDate: dateToIso(values.projectDueDate ?? null) || null,
 					projectStatus: values.projectStatus || 'Planning',
 					projectPriority: values.projectPriority || 'Medium'
 				});
@@ -305,6 +311,7 @@
 			projectPriority: 'Medium',
 			projectStartDate: new Date(),
 			projectDueDate: null
+			// eslint-disable-next-line @typescript-eslint/no-explicit-any
 		} as any;
 	}
 </script>
@@ -312,7 +319,7 @@
 <Willow>
 	<div class="project-container">
 		<div class="header">
-			<h2>Projects Management</h2>
+			<h2 class="mb-4 text-2xl font-bold text-gray-800">Projects Management</h2>
 			<div class="controls mb-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-4">
 				<Text css="height: 100%;" clear bind:value={searchTerm} onchange={handleFilter} />
 
@@ -337,7 +344,7 @@
 					onchange={handleFilter}
 				/>
 				<button
-					class="add-btn w-full rounded-md bg-blue-500 p-2 text-white sm:w-auto"
+					class="add-btn shrink-0 self-start rounded-md bg-blue-600 px-3 py-1.5 text-sm font-medium whitespace-nowrap text-white shadow-sm hover:bg-blue-700"
 					onclick={handleAddProject}
 				>
 					+ Add Project
@@ -357,13 +364,14 @@
 			</div>
 		{:else}
 			<div class="overflow-x-auto">
-				<Grid data={projects} {columns} bind:this={api} {init} selection="row" autoheight={true} />
+				<Grid data={projects} {columns} bind:this={api} {init} />
 			</div>
 		{/if}
 
 		{#if dataToEdit}
-			{#key dataToEdit.projectId || `new-${dataToEdit.projectStartDate?.getTime() || 'x'}`}
+			{#key dataToEdit.projectId || `new-${dataToEdit.projectStartDate || 'x'}`}
 				<Editor
+					onvalidation={() => true}
 					values={dataToEdit}
 					items={getEditorConfig(columns)}
 					placement="modal"

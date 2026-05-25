@@ -9,9 +9,9 @@ import { STATUSES, PRIORITIES } from '$lib/server/db/schema';
 // ---------------------------------------------------------------------------
 
 export interface ReportFilters {
-	/** ISO date string e.g. "2025-01-01" — filters by dueDate >= dateFrom */
+	/** ISO date string e.g. "2025-01-01" — filters by addedTime >= dateFrom */
 	dateFrom?: string | null;
-	/** ISO date string — filters by dueDate <= dateTo */
+	/** ISO date string — filters by addedTime <= dateTo */
 	dateTo?: string | null;
 	/** Only include tasks (and projects with those tasks) for this architect */
 	architectId?: string | null;
@@ -101,11 +101,16 @@ function daysOverdue(dueDateIso: string): number {
 	return Math.floor((now - due) / 86_400_000);
 }
 
-function inDateRange(dueDate: string | null | undefined, from?: string | null, to?: string | null): boolean {
+function inDateRange(
+	dateVal: string | null | undefined,
+	from?: string | null,
+	to?: string | null
+): boolean {
 	if (!from && !to) return true;
-	if (!dueDate) return true;
-	if (from && dueDate < from) return false;
-	if (to && dueDate > to) return false;
+	if (!dateVal) return true;
+	const d = dateVal.split('T')[0].split(' ')[0];
+	if (from && d < from) return false;
+	if (to && d > to) return false;
 	return true;
 }
 
@@ -113,7 +118,9 @@ function inDateRange(dueDate: string | null | undefined, from?: string | null, t
 // Report queries
 // ---------------------------------------------------------------------------
 
-export async function getProjectStatusSummary(filters: ReportFilters = {}): Promise<ProjectSummaryRow[]> {
+export async function getProjectStatusSummary(
+	filters: ReportFilters = {}
+): Promise<ProjectSummaryRow[]> {
 	const [allProjects, allTasks] = await Promise.all([
 		db.select().from(projects),
 		db.select().from(tasks)
@@ -132,7 +139,7 @@ export async function getProjectStatusSummary(filters: ReportFilters = {}): Prom
 		.filter((p) => !filters.priority || p.priority === filters.priority)
 		.filter((p) => inDateRange(p.dueDate, filters.dateFrom, filters.dateTo));
 
-	let filteredTasks = allTasks
+	const filteredTasks = allTasks
 		.filter(
 			(t) =>
 				!filters.search ||
@@ -172,7 +179,9 @@ export async function getProjectStatusSummary(filters: ReportFilters = {}): Prom
 	});
 }
 
-export async function getArchitectWorkload(filters: ReportFilters = {}): Promise<ArchitectWorkloadRow[]> {
+export async function getArchitectWorkload(
+	filters: ReportFilters = {}
+): Promise<ArchitectWorkloadRow[]> {
 	const [allArchitects, allTasks] = await Promise.all([
 		db.select().from(architects),
 		db.select().from(tasks)
@@ -180,8 +189,9 @@ export async function getArchitectWorkload(filters: ReportFilters = {}): Promise
 
 	const today = todayIso();
 
-	let filteredArchitects = allArchitects
-		.filter((a) => !filters.search || a.name.toLowerCase().includes(filters.search.toLowerCase()));
+	let filteredArchitects = allArchitects.filter(
+		(a) => !filters.search || a.name.toLowerCase().includes(filters.search.toLowerCase())
+	);
 	if (filters.architectId) {
 		filteredArchitects = filteredArchitects.filter((a) => a.id === filters.architectId);
 	}
@@ -204,7 +214,8 @@ export async function getArchitectWorkload(filters: ReportFilters = {}): Promise
 			architectName: a.name,
 			totalTasks: at.length,
 			activeTasks: at.filter((t) => t.status !== 'Completed' && t.status !== 'Cancelled').length,
-			overdueTasks: at.filter((t) => t.dueDate && t.dueDate < today && t.status !== 'Completed').length,
+			overdueTasks: at.filter((t) => t.dueDate && t.dueDate < today && t.status !== 'Completed')
+				.length,
 			byStatus,
 			byPriority
 		};
@@ -223,14 +234,20 @@ export async function getOverdueTasks(filters: ReportFilters = {}): Promise<Over
 	const architectMap = new Map(allArchitects.map((a) => [a.id, a.name]));
 
 	return allTasks
-		.filter((t) => t.dueDate && t.dueDate < today && t.status !== 'Completed' && t.status !== 'Cancelled')
+		.filter(
+			(t) => t.dueDate && t.dueDate < today && t.status !== 'Completed' && t.status !== 'Cancelled'
+		)
 		.filter(
 			(t) =>
 				!filters.search ||
 				t.name.toLowerCase().includes(filters.search.toLowerCase()) ||
 				(projectMap.get(t.projectId) ?? '').toLowerCase().includes(filters.search.toLowerCase()) ||
-				(t.architectId && (architectMap.get(t.architectId) ?? '').toLowerCase().includes(filters.search.toLowerCase()))
+				(t.architectId &&
+					(architectMap.get(t.architectId) ?? '')
+						.toLowerCase()
+						.includes(filters.search.toLowerCase()))
 		)
+		.filter((t) => !filters.status || t.status === filters.status)
 		.filter((t) => !filters.architectId || t.architectId === filters.architectId)
 		.filter((t) => !filters.priority || t.priority === filters.priority)
 		.filter((t) => inDateRange(t.dueDate, filters.dateFrom, filters.dateTo))

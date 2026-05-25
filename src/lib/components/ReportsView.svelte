@@ -4,13 +4,14 @@
 -->
 
 <script lang="ts">
-  import { onMount } from 'svelte';
-  import { Willow, DatePicker, RichSelect, DateRangePicker, Text } from 'wx-svelte-core';
-  import { Grid } from 'wx-svelte-grid';
-  import { formatDate } from '$lib/utils/dateUtils';
-  import { getStatusColor, getPriorityColor } from '$lib/utils/colorUtils';
-  import { enumsStore, architectsStore } from '$lib/stores';
-  import Chart from 'chart.js/auto';
+	import { onMount } from 'svelte';
+	import { Willow, RichSelect, DateRangePicker, Text } from 'wx-svelte-core';
+	import { Grid } from 'wx-svelte-grid';
+	import { formatDate } from '$lib/utils/dateUtils';
+	import { SvelteURLSearchParams } from 'svelte/reactivity';
+	import { getStatusColor } from '$lib/utils/colorUtils';
+	import { enumsStore, architectsStore } from '$lib/stores';
+	import Chart from 'chart.js/auto';
 
 	// ---------------------------------------------------------------------------
 	// Types (client-side mirror of reports.repo.ts — no server imports on client)
@@ -77,7 +78,6 @@
 	let error = $state<string | null>(null);
 	let reports = $state<AllReports | null>(null);
 	let activeTab = $state<'overview' | 'projects' | 'architects' | 'overdue'>('overview');
-	let initialLoadDone = $state(false);
 
 	// Filter state
 	let searchTerm = $state('');
@@ -87,21 +87,31 @@
 	let priorityFilter = $state<string>('all');
 
 	// Store subscriptions for filter options
-	let enumsState = $state<{ loading: boolean; value?: { status: string[]; priority: string[] }; error?: string | null }>({ loading: false });
+	let enumsState = $state<{
+		loading: boolean;
+		value?: { status: string[]; priority: string[] };
+		error?: string | null;
+	}>({ loading: false });
 	$effect(() => {
-		const unsub = enumsStore.subscribe((s) => { enumsState = s; });
+		const unsub = enumsStore.subscribe((s) => {
+			enumsState = s;
+		});
 		return unsub;
 	});
 
+	// eslint-disable-next-line @typescript-eslint/no-explicit-any
 	let architectsState = $state<any>({ list: [], loading: true, error: null });
 	$effect(() => {
-		const unsub = architectsStore.subscribe((s) => { architectsState = s; });
+		const unsub = architectsStore.subscribe((s) => {
+			architectsState = s;
+		});
 		return unsub;
 	});
 
 	// Derived filter options from stores
 	let architectOptions = $derived([
 		{ id: 'all', label: 'All Architects' },
+		// eslint-disable-next-line @typescript-eslint/no-explicit-any
 		...architectsState.list.map((a: any) => ({ id: a.architectId, label: a.architectName }))
 	]);
 	let statusOptions = $derived([
@@ -298,7 +308,7 @@
 	// Data fetching
 	// ---------------------------------------------------------------------------
 	function buildQueryString(extra?: Record<string, string>): string {
-		const p = new URLSearchParams();
+		const p = new SvelteURLSearchParams();
 		if (searchTerm) p.set('search', searchTerm);
 		if (dueRange.start) p.set('dateFrom', dueRange.start.toISOString().split('T')[0]);
 		if (dueRange.end) p.set('dateTo', dueRange.end.toISOString().split('T')[0]);
@@ -337,7 +347,6 @@
 	onMount(async () => {
 		await Promise.all([enumsStore.load(), architectsStore.load()]);
 		await loadReports();
-		initialLoadDone = true;
 	});
 
 	// Debounced filter change handler
@@ -448,7 +457,7 @@
 </script>
 
 <Willow>
-	<div class="max-w-[98%] p-4">
+	<div>
 		<!-- ── Header ─────────────────────────────────────────────────── -->
 		<div class="mb-6 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
 			<h2 class="text-2xl font-bold text-gray-800">Reports</h2>
@@ -458,7 +467,20 @@
 					onclick={() => exportReport('csv')}
 					disabled={loading || exporting !== null}
 				>
-					<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+					<svg
+						xmlns="http://www.w3.org/2000/svg"
+						width="14"
+						height="14"
+						viewBox="0 0 24 24"
+						fill="none"
+						stroke="currentColor"
+						stroke-width="2"
+						stroke-linecap="round"
+						stroke-linejoin="round"
+						><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><polyline
+							points="7 10 12 15 17 10"
+						/><line x1="12" y1="15" x2="12" y2="3" /></svg
+					>
 					{exporting === 'csv' ? 'Exporting…' : 'CSV'}
 				</button>
 				<button
@@ -466,7 +488,20 @@
 					onclick={() => exportReport('pdf')}
 					disabled={loading || exporting !== null}
 				>
-					<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><polyline points="14 2 14 8 20 8"/></svg>
+					<svg
+						xmlns="http://www.w3.org/2000/svg"
+						width="14"
+						height="14"
+						viewBox="0 0 24 24"
+						fill="none"
+						stroke="currentColor"
+						stroke-width="2"
+						stroke-linecap="round"
+						stroke-linejoin="round"
+						><path
+							d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"
+						/><polyline points="14 2 14 8 20 8" /></svg
+					>
 					{exporting === 'pdf' ? 'Exporting…' : 'PDF'}
 				</button>
 				<button
@@ -474,25 +509,77 @@
 					onclick={loadReports}
 					disabled={loading}
 				>
-					<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/><path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16"/><path d="M16 21h5v-5"/></svg>
+					<svg
+						xmlns="http://www.w3.org/2000/svg"
+						width="14"
+						height="14"
+						viewBox="0 0 24 24"
+						fill="none"
+						stroke="currentColor"
+						stroke-width="2"
+						stroke-linecap="round"
+						stroke-linejoin="round"
+						><path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" /><path
+							d="M3 3v5h5"
+						/><path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16" /><path
+							d="M16 21h5v-5"
+						/></svg
+					>
 					{loading ? 'Loading…' : 'Refresh'}
 				</button>
 			</div>
 		</div>
 
 		<!-- ── Filters ─────────────────────────────────────────────────── -->
-		<div class="mb-6 flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-3">
-			<Text css="height:100%;" clear bind:value={searchTerm} placeholder="Search..." onchange={handleFilterChange} />
-			<RichSelect options={architectOptions} bind:value={architectId} clear onchange={handleFilterChange} />
-			<RichSelect options={statusOptions} bind:value={statusFilter} clear onchange={handleFilterChange} />
-			<RichSelect options={priorityOptions} bind:value={priorityFilter} clear onchange={handleFilterChange} />
-			<DateRangePicker title="Date Range" placeholder="Pick a range" bind:value={dueRange as any} clear onchange={handleFilterChange} />
+		<div class="mb-6 flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-4">
+			<Text
+				css="height:100%;"
+				clear
+				bind:value={searchTerm}
+				placeholder="Search..."
+				onchange={handleFilterChange}
+			/>
+			<RichSelect
+				options={architectOptions}
+				bind:value={architectId}
+				clear
+				onchange={handleFilterChange}
+			/>
+			<RichSelect
+				options={statusOptions}
+				bind:value={statusFilter}
+				clear
+				onchange={handleFilterChange}
+			/>
+			<RichSelect
+				options={priorityOptions}
+				bind:value={priorityFilter}
+				clear
+				onchange={handleFilterChange}
+			/>
+			<DateRangePicker
+				title="Date Range"
+				placeholder="Pick a range"
+				bind:value={dueRange}
+				clear
+				onchange={handleFilterChange}
+			/>
 			{#if hasActiveFilters}
 				<button
 					class="flex cursor-pointer items-center gap-1.5 rounded-md border border-gray-300 bg-transparent px-3 py-2 text-sm font-medium text-gray-600 transition-colors hover:bg-gray-50"
 					onclick={resetFilters}
 				>
-					<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6L6 18"/><path d="M6 6l12 12"/></svg>
+					<svg
+						xmlns="http://www.w3.org/2000/svg"
+						width="14"
+						height="14"
+						viewBox="0 0 24 24"
+						fill="none"
+						stroke="currentColor"
+						stroke-width="2"
+						stroke-linecap="round"
+						stroke-linejoin="round"><path d="M18 6L6 18" /><path d="M6 6l12 12" /></svg
+					>
 					Reset
 				</button>
 			{/if}
@@ -501,10 +588,27 @@
 		{#if error}
 			<div class="mb-6 rounded-lg border border-red-200 bg-red-50 p-4 text-red-700">
 				<div class="flex items-start gap-3">
-					<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="mt-0.5 flex-shrink-0"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+					<svg
+						xmlns="http://www.w3.org/2000/svg"
+						width="20"
+						height="20"
+						viewBox="0 0 24 24"
+						fill="none"
+						stroke="currentColor"
+						stroke-width="2"
+						stroke-linecap="round"
+						stroke-linejoin="round"
+						class="mt-0.5 flex-shrink-0"
+						><circle cx="12" cy="12" r="10" /><line x1="12" y1="8" x2="12" y2="12" /><line
+							x1="12"
+							y1="16"
+							x2="12.01"
+							y2="16"
+						/></svg
+					>
 					<div>
 						<h4 class="font-semibold">Error loading data</h4>
-						<p class="text-sm mt-1">{error}</p>
+						<p class="mt-1 text-sm">{error}</p>
 					</div>
 				</div>
 			</div>
@@ -513,32 +617,52 @@
 		{#if !loading && reports}
 			<div class="mb-5 grid grid-cols-2 gap-3 md:grid-cols-4">
 				<div class="rounded-xl border border-blue-200 bg-blue-50 p-4">
-					<div class="text-3xl font-bold leading-none text-blue-700">{totalProjects}</div>
+					<div class="text-3xl leading-none font-bold text-blue-700">{totalProjects}</div>
 					<div class="mt-1.5 text-xs font-medium text-blue-500">Total Projects</div>
 				</div>
 				<div class="rounded-xl border border-green-200 bg-green-50 p-4">
-					<div class="text-3xl font-bold leading-none text-green-700">{completedProjects}</div>
+					<div class="text-3xl leading-none font-bold text-green-700">{completedProjects}</div>
 					<div class="mt-1.5 text-xs font-medium text-green-500">Completed</div>
 				</div>
 				<div class="rounded-xl border border-slate-200 bg-slate-50 p-4">
-					<div class="text-3xl font-bold leading-none text-slate-700">{totalTasks}</div>
+					<div class="text-3xl leading-none font-bold text-slate-700">{totalTasks}</div>
 					<div class="mt-1.5 text-xs font-medium text-slate-400">Total Tasks</div>
 				</div>
-				<div class="rounded-xl border p-4 {overdueCount > 0 ? 'border-red-200 bg-red-50' : 'border-gray-200 bg-gray-50'}">
-					<div class="text-3xl font-bold leading-none {overdueCount > 0 ? 'text-red-600' : 'text-gray-400'}">{overdueCount}</div>
-					<div class="mt-1.5 text-xs font-medium {overdueCount > 0 ? 'text-red-500' : 'text-gray-400'}">Overdue Tasks</div>
+				<div
+					class="rounded-xl border p-4 {overdueCount > 0
+						? 'border-red-200 bg-red-50'
+						: 'border-gray-200 bg-gray-50'}"
+				>
+					<div
+						class="text-3xl leading-none font-bold {overdueCount > 0
+							? 'text-red-600'
+							: 'text-gray-400'}"
+					>
+						{overdueCount}
+					</div>
+					<div
+						class="mt-1.5 text-xs font-medium {overdueCount > 0 ? 'text-red-500' : 'text-gray-400'}"
+					>
+						Overdue Tasks
+					</div>
 				</div>
 			</div>
 
 			<!-- ── Tabs ──────────────────────────────────────────────────── -->
 			<div class="mb-6 flex gap-1 overflow-x-auto border-b border-gray-200">
-				{#each tabs as tab}
+				{#each tabs as tab (tab[0])}
 					<button
-						class="cursor-pointer border-none bg-transparent px-4 py-3 text-sm font-medium transition-colors {activeTab === tab[0] ? 'border-b-2 border-blue-600 text-blue-700' : 'border-b-2 border-transparent text-gray-600 hover:border-gray-300 hover:text-gray-800'}"
+						class="cursor-pointer border-none bg-transparent px-4 py-3 text-sm font-medium transition-colors {activeTab ===
+						tab[0]
+							? 'border-b-2 border-blue-600 text-blue-700'
+							: 'border-b-2 border-transparent text-gray-600 hover:border-gray-300 hover:text-gray-800'}"
 						onclick={() => (activeTab = tab[0] as typeof activeTab)}
 					>
 						{tab[1]}
-						{#if tab[0] === 'overdue' && overdueCount > 0}<span class="ml-2 rounded-full bg-red-100 px-2 py-0.5 text-xs font-semibold text-red-700">{overdueCount}</span>{/if}
+						{#if tab[0] === 'overdue' && overdueCount > 0}<span
+								class="ml-2 rounded-full bg-red-100 px-2 py-0.5 text-xs font-semibold text-red-700"
+								>{overdueCount}</span
+							>{/if}
 					</button>
 				{/each}
 			</div>
@@ -547,10 +671,14 @@
 			{#if activeTab === 'overview'}
 				<div class="grid grid-cols-1 gap-4 md:grid-cols-2">
 					<!-- Status chart -->
-					<div class="overflow-hidden rounded-lg border border-gray-200 bg-white shadow-sm md:col-span-2">
+					<div
+						class="overflow-hidden rounded-lg border border-gray-200 bg-white shadow-sm md:col-span-2"
+					>
 						<div class="border-b border-gray-100 p-4">
 							<h3 class="text-sm font-semibold text-gray-800">Status Distribution</h3>
-							<p class="mt-1 text-xs text-gray-500">Projects vs. tasks per status — lighter bars are projects, solid are tasks</p>
+							<p class="mt-1 text-xs text-gray-500">
+								Projects vs. tasks per status — lighter bars are projects, solid are tasks
+							</p>
 						</div>
 						<div class="h-64 p-4">
 							<canvas bind:this={statusCanvas}></canvas>
@@ -558,7 +686,9 @@
 					</div>
 
 					<!-- Priority doughnut -->
-					<div class="overflow-hidden rounded-lg border border-gray-200 bg-white shadow-sm md:col-span-1">
+					<div
+						class="overflow-hidden rounded-lg border border-gray-200 bg-white shadow-sm md:col-span-1"
+					>
 						<div class="border-b border-gray-100 p-4">
 							<h3 class="text-sm font-semibold text-gray-800">Task Priority Mix</h3>
 							<p class="mt-1 text-xs text-gray-500">Distribution of tasks by priority level</p>
@@ -569,9 +699,15 @@
 					</div>
 
 					<!-- Architect workload -->
-					<div class="overflow-hidden rounded-lg border border-gray-200 bg-white shadow-sm md:col-span-2">
+					<div
+						class="overflow-hidden rounded-lg border border-gray-200 bg-white shadow-sm md:col-span-2"
+					>
 						<div class="border-b border-gray-100 p-4">
-							<h3 class="text-sm font-semibold text-gray-800">Architect Workload <span class="ml-2 text-xs font-normal text-gray-400">(top 10)</span></h3>
+							<h3 class="text-sm font-semibold text-gray-800">
+								Architect Workload <span class="ml-2 text-xs font-normal text-gray-400"
+									>(top 10)</span
+								>
+							</h3>
 							<p class="mt-1 text-xs text-gray-500">Active tasks vs. overdue tasks per architect</p>
 						</div>
 						<div class="h-80 p-4">
@@ -583,20 +719,43 @@
 					{#if reports.overdueTasks.length > 0}
 						<div class="rounded-lg border border-red-100 bg-red-50 p-4 md:col-span-2">
 							<h3 class="flex items-center gap-2 text-sm font-semibold text-red-800">
-								<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+								<svg
+									xmlns="http://www.w3.org/2000/svg"
+									width="16"
+									height="16"
+									viewBox="0 0 24 24"
+									fill="none"
+									stroke="currentColor"
+									stroke-width="2"
+									stroke-linecap="round"
+									stroke-linejoin="round"
+									><circle cx="12" cy="12" r="10" /><line x1="12" y1="8" x2="12" y2="12" /><line
+										x1="12"
+										y1="16"
+										x2="12.01"
+										y2="16"
+									/></svg
+								>
 								Most Overdue Tasks
 							</h3>
 							<div class="mt-3 max-h-60 space-y-2 overflow-y-auto pr-1">
-								{#each reports.overdueTasks.slice(0, 5) as task}
+								{#each reports.overdueTasks.slice(0, 5) as task (task.taskId)}
 									<div class="flex items-center justify-between rounded-md bg-white p-3 shadow-sm">
 										<div class="min-w-0">
 											<span class="font-medium text-gray-800">{task.taskName}</span>
-											<span class="ml-2 inline-block rounded-full px-2 py-0.5 text-xs font-semibold {getStatusColor(task.status)}">{task.status}</span>
+											<span
+												class="ml-2 inline-block rounded-full px-2 py-0.5 text-xs font-semibold {getStatusColor(
+													task.status
+												)}">{task.status}</span
+											>
 											<span class="ml-2 text-xs text-gray-400">{task.projectName}</span>
 										</div>
 										<div class="flex shrink-0 items-center gap-2">
 											<span class="text-xs text-gray-500">{task.architectName}</span>
-											<span class="rounded-full bg-red-100 px-2 py-0.5 text-xs font-semibold text-red-700">{task.daysOverdue}d late</span>
+											<span
+												class="rounded-full bg-red-100 px-2 py-0.5 text-xs font-semibold text-red-700"
+												>{task.daysOverdue}d late</span
+											>
 										</div>
 									</div>
 								{/each}
@@ -613,7 +772,7 @@
 					{/if}
 				</div>
 
-			<!-- ── Tab: Project Summary ───────────────────────────────────── -->
+				<!-- ── Tab: Project Summary ───────────────────────────────────── -->
 			{:else if activeTab === 'projects'}
 				{#if reports.projectSummary.length === 0}
 					<div class="rounded-lg border border-yellow-200 bg-yellow-50 p-8 text-center">
@@ -621,13 +780,9 @@
 					</div>
 				{:else}
 					<div class="overflow-x-auto rounded-lg border border-gray-200 bg-white shadow-sm">
-						<Grid
-							data={reports.projectSummary}
-							columns={projectColumns}
-						/>
+						<Grid data={reports.projectSummary} columns={projectColumns} />
 					</div>
 				{/if}
-
 			{:else if activeTab === 'architects'}
 				{#if reports.architectWorkload.length === 0}
 					<div class="rounded-lg border border-yellow-200 bg-yellow-50 p-8 text-center">
@@ -635,27 +790,33 @@
 					</div>
 				{:else}
 					<div class="overflow-x-auto rounded-lg border border-gray-200 bg-white shadow-sm">
-						<Grid
-							data={reports.architectWorkload}
-							columns={architectColumns}
-						/>
+						<Grid data={reports.architectWorkload} columns={architectColumns} />
 					</div>
 				{/if}
-
 			{:else if activeTab === 'overdue'}
 				{#if reports.overdueTasks.length === 0}
 					<div class="rounded-lg border border-green-200 bg-green-50 p-8 text-center">
 						<p class="flex items-center justify-center gap-2 text-lg font-semibold text-green-800">
-							<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+							<svg
+								xmlns="http://www.w3.org/2000/svg"
+								width="20"
+								height="20"
+								viewBox="0 0 24 24"
+								fill="none"
+								stroke="currentColor"
+								stroke-width="2"
+								stroke-linecap="round"
+								stroke-linejoin="round"
+								><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" /><polyline
+									points="22 4 12 14.01 9 11.01"
+								/></svg
+							>
 							No overdue tasks. Everything is on track!
 						</p>
 					</div>
 				{:else}
 					<div class="overflow-x-auto rounded-lg border border-gray-200 bg-white shadow-sm">
-						<Grid
-							data={reports.overdueTasks}
-							columns={overdueColumns}
-						/>
+						<Grid data={reports.overdueTasks} columns={overdueColumns} />
 					</div>
 				{/if}
 			{/if}
@@ -664,11 +825,7 @@
 				<div class="h-12 w-12 animate-spin rounded-full border-b-2 border-blue-600"></div>
 			</div>
 		{:else}
-			<div class="text-sm text-gray-400">
-				Loading reports…
-			</div>
+			<div class="text-sm text-gray-400">Loading reports…</div>
 		{/if}
 	</div>
 </Willow>
-
-

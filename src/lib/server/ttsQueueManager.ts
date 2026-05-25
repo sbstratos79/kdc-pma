@@ -4,7 +4,7 @@ import { EventEmitter } from 'events';
 interface TaskAssignment {
 	taskId: string;
 	taskName: string;
-  taskDescription: string;
+	taskDescription: string;
 	architectId: string;
 	architectName: string;
 	projectName: string;
@@ -29,6 +29,7 @@ class TTSQueueManager extends EventEmitter {
 	/**
 	 * Initialize with existing tasks (mark as seen, don't announce)
 	 */
+	// eslint-disable-next-line @typescript-eslint/no-explicit-any
 	initialize(tasks: any[]) {
 		if (this.initialized) return;
 
@@ -45,6 +46,7 @@ class TTSQueueManager extends EventEmitter {
 	/**
 	 * Check for new assignments and queue them
 	 */
+	// eslint-disable-next-line @typescript-eslint/no-explicit-any
 	checkForNewAssignments(tasks: any[]) {
 		if (!this.initialized) {
 			console.log('[TTS Queue] Not initialized yet, skipping check');
@@ -73,7 +75,7 @@ class TTSQueueManager extends EventEmitter {
 						newAssignments.push({
 							taskId: task.taskId,
 							taskName: task.taskName,
-              taskDescription: task.taskDescription,
+							taskDescription: task.taskDescription,
 							architectId: task.architectId,
 							architectName: task.architectName,
 							projectName: task.projectName || '',

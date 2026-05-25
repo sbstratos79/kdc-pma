@@ -4,17 +4,37 @@
 	import { Carousel } from '@ark-ui/svelte/carousel';
 	import { SvelteMap } from 'svelte/reactivity';
 	import { architectsStore, projectsStore, tasksStore } from '$lib/stores';
-	import { getPriorityColor, getPriorityGradient, getStatusColor, getStatusBarColor } from '$lib/utils/colorUtils';
+	import {
+		getPriorityColor,
+		getPriorityGradient,
+		getStatusColor,
+		getStatusBarColor
+	} from '$lib/utils/colorUtils';
 	import { formatDate } from '$lib/utils/dateUtils';
-	import type { Project, Task } from '$lib/types';
+	import type { Architect, Project, Task } from '$lib/types';
 
 	let loading = $state(true);
 	let error: string | null = $state(null);
 
 	// Subscribe to stores
-	let architectsState = $state({ list: [], loading: true, error: null, byId: {} });
-	let projectsState = $state({ list: [], loading: true, error: null, byId: {} });
-	let tasksState = $state({ list: [], loading: true, error: null, byId: {} });
+	let architectsState = $state({
+		list: [] as Architect[],
+		loading: true,
+		error: null as string | null,
+		byId: {} as Record<string, Architect>
+	});
+	let projectsState = $state({
+		list: [] as Project[],
+		loading: true,
+		error: null as string | null,
+		byId: {} as Record<string, Project>
+	});
+	let tasksState = $state({
+		list: [] as Task[],
+		loading: true,
+		error: null as string | null,
+		byId: {} as Record<string, Task>
+	});
 
 	$effect(() => {
 		const unsubArchitects = architectsStore.subscribe((state) => {
@@ -252,65 +272,59 @@
 		};
 	}
 
-	onMount(async () => {
-		try {
-			loading = true;
+	onMount(() => {
+		loading = true;
 
-			const updateSlidesPerPage = () => {
-				if (typeof window === 'undefined') return;
-				const width = window.innerWidth;
-				slideWidth = Math.min(getSlideWidth(), SLIDE_MAX_WIDTH_PX);
-				baseSlidesPerPage = Math.max(1, Math.floor(width / slideWidth));
-			};
+		const updateSlidesPerPage = () => {
+			if (typeof window === 'undefined') return;
+			const width = window.innerWidth;
+			slideWidth = Math.min(getSlideWidth(), SLIDE_MAX_WIDTH_PX);
+			baseSlidesPerPage = Math.max(1, Math.floor(width / slideWidth));
+		};
 
-			// Set initial value
-			updateSlidesPerPage();
+		// Set initial value
+		updateSlidesPerPage();
 
-			// Update on resize
-			window.addEventListener('resize', updateSlidesPerPage);
+		// Update on resize
+		window.addEventListener('resize', updateSlidesPerPage);
 
-			await Promise.all([architectsStore.load(), projectsStore.load(), tasksStore.load()]);
-
-			// Load tasks with names
+		// Refresh data when window regains focus
+		const handleFocus = async () => {
+			await Promise.all([architectsStore.refresh(), projectsStore.refresh(), tasksStore.refresh()]);
+			// Re-enrich tasks after refresh
 			tasksStore.loadWithNames(architectsState.byId, projectsState.byId);
+		};
+		window.addEventListener('focus', handleFocus);
 
-			// Refresh data when window regains focus
-			const handleFocus = async () => {
-				await Promise.all([
-					architectsStore.refresh(),
-					projectsStore.refresh(),
-					tasksStore.refresh()
-				]);
-				// Re-enrich tasks after refresh
-				tasksStore.loadWithNames(architectsState.byId, projectsState.byId);
-			};
-			window.addEventListener('focus', handleFocus);
+		// Optional: Auto-refresh every 30 seconds
+		const refreshInterval = setInterval(async () => {
+			await Promise.all([architectsStore.refresh(), projectsStore.refresh(), tasksStore.refresh()]);
+			// Re-enrich tasks after auto-refresh
+			tasksStore.loadWithNames(architectsState.byId, projectsState.byId);
+		}, 30000); // 30 seconds
 
-			// Optional: Auto-refresh every 30 seconds
-			const refreshInterval = setInterval(async () => {
-				await Promise.all([
-					architectsStore.refresh(),
-					projectsStore.refresh(),
-					tasksStore.refresh()
-				]);
-				// Re-enrich tasks after auto-refresh
+		// async load
+		(async () => {
+			try {
+				await Promise.all([architectsStore.load(), projectsStore.load(), tasksStore.load()]);
+				// Load tasks with names
 				tasksStore.loadWithNames(architectsState.byId, projectsState.byId);
-			}, 30000); // 30 seconds
-			// Cleanup
-			return () => {
-				window.removeEventListener('resize', updateSlidesPerPage);
-				clearInterval(refreshInterval);
-			};
-		} catch (err) {
-			console.error('Error loading data:', err);
-			if (err instanceof Error) {
-				error = err.message;
-			} else {
-				error = 'Unknown error occurred';
+			} catch (err) {
+				console.error('Error loading data:', err);
+				if (err instanceof Error) {
+					error = err.message;
+				} else {
+					error = 'Unknown error occurred';
+				}
+			} finally {
+				loading = false;
 			}
-		} finally {
-			loading = false;
-		}
+		})();
+
+		return () => {
+			window.removeEventListener('resize', updateSlidesPerPage);
+			clearInterval(refreshInterval);
+		};
 	});
 </script>
 
@@ -459,13 +473,13 @@
 																				>
 																					{#if task.taskStatus}
 																						<div
-																							class="shrink-0 w-[10px] {getStatusBarColor(
+																							class="w-[10px] shrink-0 {getStatusBarColor(
 																								task.taskStatus
 																							)}"
 																						></div>
-																						<div class="shrink-0 w-2.5"></div>
+																						<div class="w-2.5 shrink-0"></div>
 																					{/if}
-																					<div class="flex flex-col min-w-0 p-2 md:p-3">
+																					<div class="flex min-w-0 flex-col p-2 md:p-3">
 																						<p
 																							class="text-md truncate font-medium text-gray-900 lg:text-lg xl:text-xl"
 																						>

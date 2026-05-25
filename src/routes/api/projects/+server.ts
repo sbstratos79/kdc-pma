@@ -20,16 +20,17 @@ function isValidDate(dateString: string | null | undefined): boolean {
 }
 
 // Map repo DTO
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 function ensureProjectDto(p: any): Project {
 	return {
-		projectId: p.projectId ?? '',
-		projectName: p.projectName ?? '',
-		projectDescription: p.projectDescription ?? null,
-		projectStartDate: p.projectStartDate ?? null,
-		projectDueDate: p.projectDueDate ?? null,
-		addedTime: null,
-		projectStatus: p.projectStatus ?? '',
-		projectPriority: p.projectPriority ?? '',
+		projectId: p.id ?? p.projectId ?? '',
+		projectName: p.name ?? p.projectName ?? '',
+		projectDescription: p.description ?? p.projectDescription ?? null,
+		projectStartDate: p.startDate ?? p.projectStartDate ?? null,
+		projectDueDate: p.dueDate ?? p.projectDueDate ?? null,
+		addedTime: p.addedTime ?? null,
+		projectStatus: p.status ?? p.projectStatus ?? '',
+		projectPriority: p.priority ?? p.projectPriority ?? '',
 		tasks: p.tasks ?? []
 	};
 }
@@ -45,16 +46,12 @@ export const GET: RequestHandler = async ({ url }) => {
 			if (!dto) {
 				return json({ error: 'Project not found' }, { status: 404 });
 			}
-			return json({ data: dto });
+			return json({ data: ensureProjectDto(dto) });
 		}
 
 		// Otherwise fetch all projects
 		const raw = await repoListProjects();
-		const projects: Project[] = [];
-		for (const r of raw) {
-			const dto = await repoGetProjects(r.id);
-			if (dto) projects.push(dto);
-		}
+		const projects = raw.map((r) => ensureProjectDto(r));
 		return json({ data: projects });
 	} catch (err) {
 		console.error('GET /api/projects error', err);
@@ -69,8 +66,10 @@ export const POST: RequestHandler = async ({ request }) => {
 
 		// Accept either { name, ... } or your frontend Project-shaped fields
 		const projectId =
+			// eslint-disable-next-line @typescript-eslint/no-explicit-any
 			globalThis.crypto && (crypto as any).randomUUID
-				? (crypto as any).randomUUID()
+				? // eslint-disable-next-line @typescript-eslint/no-explicit-any
+					(crypto as any).randomUUID()
 				: String(Date.now()) + Math.random();
 
 		const projectName = (body.name ?? body.projectName ?? '').trim();
@@ -125,6 +124,7 @@ export const PUT: RequestHandler = async ({ request, url }) => {
 			return json({ error: 'Missing id or data in request' }, { status: 400 });
 		}
 
+		// eslint-disable-next-line @typescript-eslint/no-explicit-any
 		const changes: any = {};
 		if ('projectName' in data) changes.name = (data.projectName || '').trim();
 		if ('projectDescription' in data) changes.description = data.projectDescription ?? null;

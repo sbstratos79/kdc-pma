@@ -4,17 +4,37 @@
 	import { Carousel } from '@ark-ui/svelte/carousel';
 	import { SvelteMap } from 'svelte/reactivity';
 	import { architectsStore, projectsStore, tasksStore } from '$lib/stores';
-	import { getPriorityColor, getPriorityGradient, getStatusColor, getStatusBarColor } from '$lib/utils/colorUtils';
+	import {
+		getPriorityColor,
+		getPriorityGradient,
+		getStatusColor,
+		getStatusBarColor
+	} from '$lib/utils/colorUtils';
 	import { formatDate } from '$lib/utils/dateUtils';
-	import type { Project, Task } from '$lib/types';
+	import type { Architect, Project, Task } from '$lib/types';
 
 	let loading = $state(true);
 	let error: string | null = $state(null);
 
 	// Subscribe to stores
-	let projectsState = $state({ list: [], loading: true, error: null, byId: {} });
-	let tasksState = $state({ list: [], loading: true, error: null, byId: {} });
-	let architectsState = $state({ list: [], loading: true, error: null, byId: {} });
+	let projectsState = $state({
+		list: [] as Project[],
+		loading: true,
+		error: null as string | null,
+		byId: {} as Record<string, Project>
+	});
+	let tasksState = $state({
+		list: [] as Task[],
+		loading: true,
+		error: null as string | null,
+		byId: {} as Record<string, Task>
+	});
+	let architectsState = $state({
+		list: [] as Architect[],
+		loading: true,
+		error: null as string | null,
+		byId: {} as Record<string, Architect>
+	});
 
 	$effect(() => {
 		const unsubProjects = projectsStore.subscribe((state) => {
@@ -120,72 +140,64 @@
 		return Math.max(MIN_AUTOPLAY_DELAY, Math.min(MAX_AUTOPLAY_DELAY, dynamicDelay));
 	});
 
-	onMount(async () => {
-		try {
-			loading = true;
+	onMount(() => {
+		loading = true;
 
-			const updateSlidesPerPage = () => {
-				const width = window.innerWidth;
-				slideWidth = Math.min(getSlideWidth(), SLIDE_MAX_WIDTH_PX);
-				baseSlidesPerPage = Math.max(1, Math.floor(width / slideWidth));
-				// Force carousel remount on zoom
-			};
+		const updateSlidesPerPage = () => {
+			const width = window.innerWidth;
+			slideWidth = Math.min(getSlideWidth(), SLIDE_MAX_WIDTH_PX);
+			baseSlidesPerPage = Math.max(1, Math.floor(width / slideWidth));
+		};
 
-			// Set initial value
-			updateSlidesPerPage();
+		// Set initial value
+		updateSlidesPerPage();
 
-			// Update on resize
-			window.addEventListener('resize', updateSlidesPerPage);
+		// Update on resize
+		window.addEventListener('resize', updateSlidesPerPage);
 
-			// Detect zoom using visualViewport
-			if (window.visualViewport) {
-				window.visualViewport.addEventListener('resize', updateSlidesPerPage);
-			}
-
-			await Promise.all([architectsStore.load(), projectsStore.load(), tasksStore.load()]);
-
-			// Enrich tasks with architect and project names
-			tasksStore.loadWithNames(architectsState.byId, projectsState.byId);
-
-			// Refresh data when window regains focus
-			const handleFocus = async () => {
-				await Promise.all([
-					architectsStore.refresh(),
-					projectsStore.refresh(),
-					tasksStore.refresh()
-				]);
-				// Re-enrich tasks after refresh
-				tasksStore.loadWithNames(architectsState.byId, projectsState.byId);
-			};
-			window.addEventListener('focus', handleFocus);
-
-			// Optional: Auto-refresh every 30 seconds
-			const refreshInterval = setInterval(async () => {
-				await Promise.all([
-					architectsStore.refresh(),
-					projectsStore.refresh(),
-					tasksStore.refresh()
-				]);
-				// Re-enrich tasks after auto-refresh
-				tasksStore.loadWithNames(architectsState.byId, projectsState.byId);
-			}, 30000); // 30 seconds
-
-			// Cleanup
-			return () => {
-				window.removeEventListener('focus', handleFocus);
-				window.removeEventListener('resize', updateSlidesPerPage);
-				clearInterval(refreshInterval);
-			};
-		} catch (err) {
-			console.error('Error loading data:', err);
-			if (err instanceof Error) {
-				error = err.message;
-			} else {
-				error = 'Unknown error occurred';
-			}
-		} finally {
-			loading = false;
+		// Detect zoom using visualViewport
+		if (window.visualViewport) {
+			window.visualViewport.addEventListener('resize', updateSlidesPerPage);
 		}
+
+		// Refresh data when window regains focus
+		const handleFocus = async () => {
+			await Promise.all([architectsStore.refresh(), projectsStore.refresh(), tasksStore.refresh()]);
+			// Re-enrich tasks after refresh
+			tasksStore.loadWithNames(architectsState.byId, projectsState.byId);
+		};
+		window.addEventListener('focus', handleFocus);
+
+		// Optional: Auto-refresh every 30 seconds
+		const refreshInterval = setInterval(async () => {
+			await Promise.all([architectsStore.refresh(), projectsStore.refresh(), tasksStore.refresh()]);
+			// Re-enrich tasks after auto-refresh
+			tasksStore.loadWithNames(architectsState.byId, projectsState.byId);
+		}, 30000); // 30 seconds
+
+		// async load
+		(async () => {
+			try {
+				await Promise.all([architectsStore.load(), projectsStore.load(), tasksStore.load()]);
+				// Enrich tasks with architect and project names
+				tasksStore.loadWithNames(architectsState.byId, projectsState.byId);
+			} catch (err) {
+				console.error('Error loading data:', err);
+				if (err instanceof Error) {
+					error = err.message;
+				} else {
+					error = 'Unknown error occurred';
+				}
+			} finally {
+				loading = false;
+			}
+		})();
+
+		return () => {
+			window.removeEventListener('focus', handleFocus);
+			window.removeEventListener('resize', updateSlidesPerPage);
+			clearInterval(refreshInterval);
+		};
 	});
 </script>
 
@@ -311,13 +323,15 @@
 																			>
 																				{#if task.taskStatus}
 																					<div
-																						class="shrink-0 w-[10px] {getStatusBarColor(
+																						class="w-[10px] shrink-0 {getStatusBarColor(
 																							task.taskStatus
 																						)}"
 																					></div>
-																					<div class="shrink-0 w-2.5"></div>
+																					<div class="w-2.5 shrink-0"></div>
 																				{/if}
-																				<div class="flex flex-col justify-between min-w-0 px-3 py-1 md:py-2">
+																				<div
+																					class="flex min-w-0 flex-col justify-between px-3 py-1 md:py-2"
+																				>
 																					<div class="min-w-0 flex-1">
 																						<p
 																							class="text-md min-w-0 flex-1 items-center truncate font-bold text-gray-900 md:text-lg xl:text-xl"
@@ -346,10 +360,14 @@
 																						{#if task.architectName}
 																							<p class="text-lg text-gray-700 xl:text-xl">
 																								Assigned to:
-																								<span class="font-bold text-gray-900">{task.architectName}</span>
+																								<span class="font-bold text-gray-900"
+																									>{task.architectName}</span
+																								>
 																							</p>
 																						{:else}
-																							<p class="text-xs text-gray-500 italic md:text-sm xl:text-base">
+																							<p
+																								class="text-xs text-gray-500 italic md:text-sm xl:text-base"
+																							>
 																								Unassigned
 																							</p>
 																						{/if}

@@ -20,6 +20,7 @@ function createProjectsStore() {
 	const store: Writable<State> = writable(makeInitial());
 
 	// Map API response to Project DTO
+	// eslint-disable-next-line @typescript-eslint/no-explicit-any
 	function mapApiResponseToProject(apiProject: any): Project {
 		return {
 			projectId: apiProject.projectId || apiProject.id || '',
@@ -38,10 +39,11 @@ function createProjectsStore() {
 		store.update((s) => ({ ...s, loading: true, error: null }));
 		try {
 			const result = await fetcher.fetch(force);
+			// eslint-disable-next-line @typescript-eslint/no-explicit-any
 			const rawData = Array.isArray(result) ? result : (result as any)?.data || [];
 			const data = rawData.map(mapApiResponseToProject);
 			const byId: Record<string, Project> = {};
-			data.forEach((p) => (byId[p.projectId] = p));
+			data.forEach((p: Project) => (byId[p.projectId] = p));
 			store.set({ loading: false, error: null, list: data, byId });
 			return data;
 		} catch (err) {
@@ -124,6 +126,7 @@ function createProjectsStore() {
 				throw new Error(errData.error || 'Create project failed');
 			}
 			const json = await res.json();
+			// eslint-disable-next-line @typescript-eslint/no-explicit-any
 			const created = json?.data as any;
 			const mappedProject = mapApiResponseToProject(created);
 
@@ -153,6 +156,7 @@ function createProjectsStore() {
 				throw new Error(errData.error || 'Update failed');
 			}
 			const json = await res.json();
+			// eslint-disable-next-line @typescript-eslint/no-explicit-any
 			const updated = json?.data as any;
 			const mappedProject = mapApiResponseToProject(updated);
 			if (mappedProject) updateLocal(id, mappedProject);

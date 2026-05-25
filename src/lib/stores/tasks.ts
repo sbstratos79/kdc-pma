@@ -21,10 +21,13 @@ function createTasksStore() {
 	let isInitialLoad = true;
 
 	// CRITICAL: Store references to enrichment data
+	// eslint-disable-next-line @typescript-eslint/no-explicit-any
 	let cachedArchitectsById: Record<string, any> = {};
+	// eslint-disable-next-line @typescript-eslint/no-explicit-any
 	let cachedProjectsById: Record<string, any> = {};
 
 	// Map API response to Task DTO
+	// eslint-disable-next-line @typescript-eslint/no-explicit-any
 	function mapApiResponseToTask(apiTask: any): Task {
 		return {
 			taskId: apiTask.taskId || apiTask.id || '',
@@ -57,13 +60,14 @@ function createTasksStore() {
 		store.update((s) => ({ ...s, loading: true }));
 		try {
 			const result = await fetcher.fetch(force);
+			// eslint-disable-next-line @typescript-eslint/no-explicit-any
 			const rawData = Array.isArray(result) ? result : (result as any)?.data || [];
 
 			// CRITICAL: Enrich immediately during mapping
 			const data = rawData.map((item) => enrichTask(mapApiResponseToTask(item)));
 
 			const byId: Record<string, Task> = {};
-			data.forEach((t) => (byId[t.taskId] = t));
+			data.forEach((t: Task) => (byId[t.taskId] = t));
 			store.set({ loading: false, error: null, list: data, byId });
 
 			// Notify server about current tasks (server handles TTS logic)
@@ -95,6 +99,7 @@ function createTasksStore() {
 	}
 
 	// Update cached enrichment data and re-enrich existing tasks
+	// eslint-disable-next-line @typescript-eslint/no-explicit-any
 	function loadWithNames(architectsById: Record<string, any>, projectsById: Record<string, any>) {
 		// Update cache
 		cachedArchitectsById = architectsById;
@@ -113,7 +118,7 @@ function createTasksStore() {
 
 			// Rebuild byId with enriched tasks
 			const byId: Record<string, Task> = {};
-			s.list.forEach((t) => (byId[t.taskId] = t));
+			s.list.forEach((t: Task) => (byId[t.taskId] = t));
 
 			// Notify server after enrichment
 			notifyServerAboutTasks(s.list);
@@ -201,6 +206,7 @@ function createTasksStore() {
 				throw new Error(errData.error || 'Create task failed');
 			}
 			const json = await res.json();
+			// eslint-disable-next-line @typescript-eslint/no-explicit-any
 			const created = json?.data as any;
 			const mappedTask = mapApiResponseToTask(created);
 
@@ -230,6 +236,7 @@ function createTasksStore() {
 				throw new Error(errData.error || 'Update failed');
 			}
 			const json = await res.json();
+			// eslint-disable-next-line @typescript-eslint/no-explicit-any
 			const updated = json?.data as any;
 			const mappedTask = mapApiResponseToTask(updated);
 			if (mappedTask) updateLocal(id, mappedTask);

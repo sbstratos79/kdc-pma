@@ -24,6 +24,7 @@ export const GET: RequestHandler = async () => {
 			safeEnqueue(encoder.encode('data: {"type":"connected"}\n\n'));
 
 			// Listen for announcements
+			// eslint-disable-next-line @typescript-eslint/no-explicit-any
 			const handleAnnouncement = (assignment: any) => {
 				const message = `data: ${JSON.stringify({
 					type: 'announcement',

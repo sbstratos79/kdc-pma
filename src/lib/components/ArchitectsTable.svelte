@@ -1,10 +1,8 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
-	import { RichSelect, DatePicker, DateRangePicker, Willow, Text } from 'wx-svelte-core';
+	import { RichSelect, DatePicker, Willow, Text } from 'wx-svelte-core';
 	import { Editor, registerEditorItem } from 'wx-svelte-editor';
 	import { Grid, getEditorConfig } from 'wx-svelte-grid';
-	import { parseDate, dateToIso, formatDate } from '$lib/utils/dateUtils';
-	import { SvelteDate } from 'svelte/reactivity';
 
 	import { architectsStore } from '$lib/stores';
 	import type { Architect } from '$lib/types';
@@ -14,7 +12,11 @@
 	let dataToEdit = $state<Architect | null>(null);
 
 	// Reactive state from stores - use $derived with store snapshots
-	let architectsState = $state({ list: [], loading: true, error: null });
+	let architectsState = $state({
+		list: [] as Architect[],
+		loading: true,
+		error: null as string | null
+	});
 
 	// Subscribe to stores
 	$effect(() => {
@@ -33,7 +35,7 @@
 	let searchTerm = $state('');
 	let statusFilter = $state('all');
 	let priorityFilter = $state('all');
-	let dueRange = $state<{ start: Date | null; end: Date | null }>({ start: null, end: null });
+	let dueRange = $state({ start: null as Date | null, end: null as Date | null });
 
 	// ----------------------
 	// Load initial data on mount
@@ -42,7 +44,8 @@
 		try {
 			// Load all data in parallel
 
-			await Promise.all([
+			// eslint-disable-next-line @typescript-eslint/no-explicit-any
+			await Promise.all<any>([
 				architectsStore.load().then((r) => {
 					return r;
 				})
@@ -75,6 +78,7 @@
 	]);
 
 	// Initialize grid API and event handlers
+	// eslint-disable-next-line @typescript-eslint/no-explicit-any
 	const init = (gridApi: any) => {
 		api = gridApi;
 
@@ -161,8 +165,8 @@
 				}
 
 				await architectsStore.create({
-					architectId: values.architectId,
-					architectName: values.architectName
+					architectId: values.architectId || '',
+					architectName: values.architectName || ''
 				});
 			}
 			closeEditor();
@@ -193,6 +197,7 @@
 		dataToEdit = {
 			architectId: '',
 			architectName: ''
+			// eslint-disable-next-line @typescript-eslint/no-explicit-any
 		} as any;
 	}
 </script>
@@ -200,11 +205,11 @@
 <Willow>
 	<div class="architects-container">
 		<div class="header">
-			<h2>Architects Management</h2>
+			<h2 class="mb-4 text-2xl font-bold text-gray-800">Architects Management</h2>
 			<div class="controls mb-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-4">
 				<Text css="height: 100%;" clear bind:value={searchTerm} onchange={handleFilter} />
 				<button
-					class="add-btn w-full rounded-md bg-blue-500 p-2 text-white sm:w-auto"
+					class="add-btn shrink-0 self-start rounded-md bg-blue-600 px-3 py-1.5 text-sm font-medium whitespace-nowrap text-white shadow-sm hover:bg-blue-700"
 					onclick={handleAddArchitect}
 				>
 					+ Add Architect
@@ -224,12 +229,13 @@
 			</div>
 		{:else}
 			<div class="overflow-x-auto">
-				<Grid data={architects} {columns} bind:this={api} {init} selection="row" autoheight={true} />
+				<Grid data={architects} {columns} bind:this={api} {init} />
 			</div>
 		{/if}
 
 		{#if dataToEdit}
 			<Editor
+				onvalidation={() => true}
 				values={dataToEdit}
 				items={getEditorConfig(columns)}
 				placement="modal"

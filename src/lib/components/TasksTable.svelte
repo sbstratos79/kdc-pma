@@ -7,16 +7,24 @@
 	import { SvelteDate } from 'svelte/reactivity';
 
 	import { architectsStore, projectsStore, tasksStore, enumsStore } from '$lib/stores';
-	import type { Task } from '$lib/types';
+	import type { Architect, Project, Task } from '$lib/types';
 
 	// Grid API and state
 	let api = $state();
 	let dataToEdit = $state<Task | null>(null);
 
 	// Reactive state from stores - use $derived with store snapshots
-	let tasksState = $state({ list: [], loading: true, error: null });
-	let architectsState = $state({ list: [], loading: true, error: null });
-	let projectsState = $state({ list: [], loading: true, error: null });
+	let tasksState = $state({ list: [] as Task[], loading: true, error: null as string | null });
+	let architectsState = $state({
+		list: [] as Architect[],
+		loading: true,
+		error: null as string | null
+	});
+	let projectsState = $state({
+		list: [] as Project[],
+		loading: true,
+		error: null as string | null
+	});
 
 	// Subscribe to stores
 	$effect(() => {
@@ -59,7 +67,7 @@
 	let searchTerm = $state('');
 	let statusFilter = $state('all');
 	let priorityFilter = $state('all');
-	let dueRange = $state<{ start: Date | null; end: Date | null }>({ start: null, end: null });
+	let dueRange = $state({ start: null as Date | null, end: null as Date | null });
 
 	// ----------------------
 	// Load initial data on mount
@@ -68,7 +76,8 @@
 		try {
 			// Load all data in parallel
 
-			await Promise.all([
+			// eslint-disable-next-line @typescript-eslint/no-explicit-any
+			await Promise.all<any>([
 				enumsStore.load().then((r) => {
 					return r;
 				}),
@@ -190,6 +199,7 @@
 	]);
 
 	// Initialize grid API and event handlers
+	// eslint-disable-next-line @typescript-eslint/no-explicit-any
 	const init = (gridApi: any) => {
 		api = gridApi;
 
@@ -307,12 +317,13 @@
 				}
 
 				await tasksStore.create({
+					taskId: values.taskId || '',
 					taskName: values.taskName,
 					projectId: values.projectId,
 					architectId: values.architectId,
 					taskDescription: values.taskDescription || null,
-					taskStartDate: dateToIso(values.taskStartDate as any) || null,
-					taskDueDate: dateToIso(values.taskDueDate as any) || null,
+					taskStartDate: dateToIso(values.taskStartDate ?? null) || null,
+					taskDueDate: dateToIso(values.taskDueDate ?? null) || null,
 					taskStatus: values.taskStatus || 'Planning',
 					taskPriority: values.taskPriority || 'Medium'
 				});
@@ -355,6 +366,7 @@
 			architectName: '',
 			projectId: '',
 			projectName: ''
+			// eslint-disable-next-line @typescript-eslint/no-explicit-any
 		} as any;
 	}
 </script>
@@ -362,7 +374,7 @@
 <Willow>
 	<div class="tasks-container">
 		<div class="header">
-			<h2>Tasks Management</h2>
+			<h2 class="mb-4 text-2xl font-bold text-gray-800">Tasks Management</h2>
 			<div class="controls mb-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-4">
 				<Text css="height: 100%;" clear bind:value={searchTerm} onchange={handleFilter} />
 				<RichSelect
@@ -386,7 +398,7 @@
 					onchange={handleFilter}
 				/>
 				<button
-					class="add-btn w-full rounded-md bg-blue-500 p-2 text-white sm:w-auto"
+					class="add-btn shrink-0 self-start rounded-md bg-blue-600 px-3 py-1.5 text-sm font-medium whitespace-nowrap text-white shadow-sm hover:bg-blue-700"
 					onclick={handleAddTask}
 				>
 					+ Add Task
@@ -406,12 +418,13 @@
 			</div>
 		{:else}
 			<div class="overflow-x-auto">
-				<Grid data={tasks} {columns} bind:this={api} {init} selection="row" autoheight={true} />
+				<Grid data={tasks} {columns} bind:this={api} {init} />
 			</div>
 		{/if}
 		{#if dataToEdit}
-			{#key dataToEdit.taskId || `new-${dataToEdit.taskStartDate?.getTime() || 'x'}`}
+			{#key dataToEdit.taskId || `new-${dataToEdit.taskStartDate || 'x'}`}
 				<Editor
+					onvalidation={() => true}
 					values={dataToEdit}
 					items={getEditorConfig(columns)}
 					placement="modal"

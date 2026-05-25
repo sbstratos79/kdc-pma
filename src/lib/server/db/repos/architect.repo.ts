@@ -63,6 +63,7 @@ export async function getArchitectWithTasks(id: string): Promise<ArchitectDTO | 
 			taskDescription: t.description ?? null,
 			taskStartDate: t.startDate ?? null,
 			taskDueDate: t.dueDate ?? null,
+			addedTime: t.addedTime ?? null,
 			taskStatus: t.status,
 			taskPriority: t.priority,
 			projectId: t.projectId,
@@ -72,7 +73,7 @@ export async function getArchitectWithTasks(id: string): Promise<ArchitectDTO | 
 
 	return {
 		architectId: arch.id,
-		architectName: arch.name
-		// tasks
+		architectName: arch.name,
+		tasks
 	};
 }

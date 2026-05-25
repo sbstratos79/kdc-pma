@@ -25,7 +25,9 @@
 	});
 </script>
 
-<div class="flex h-full flex-col overflow-y-auto px-2 pt-2 md:px-6 lg:flex-row lg:overflow-hidden lg:gap-6 lg:pt-6">
+<div
+	class="flex h-full flex-col overflow-y-auto px-2 pt-2 md:px-6 lg:flex-row lg:gap-6 lg:overflow-hidden lg:pt-6"
+>
 	<div class="hidden overflow-y-auto lg:block lg:w-[20vw]">
 		<PendingTasksVerticalCarousel />
 	</div>

@@ -42,6 +42,7 @@ export async function updateProject(
 export async function deleteProjectCascade(id: string): Promise<ProjectSelect | null> {
 	return db.transaction(async (tx) => {
 		const deleted = await tx.delete(projects).where(eq(projects.id, id)).returning();
+		// eslint-disable-next-line @typescript-eslint/no-explicit-any
 		return (deleted as any)[0] ?? null;
 	});
 }
@@ -57,13 +58,15 @@ export async function getProjectWithTasks(id: string): Promise<ProjectDTO | null
 	const tasks: TaskDTO[] = [];
 	for (const t of rawTasks) {
 		// fetch architect name
-		const arch = await single(
-			db.select().from(architectsTable).where(eq(architectsTable.id, t.architectId)).limit(1)
-		);
+		const arch = t.architectId
+			? await single(
+					db.select().from(architectsTable).where(eq(architectsTable.id, t.architectId)).limit(1)
+				)
+			: null;
 
 		tasks.push({
 			architectId: t.architectId,
-			architectName: arch?.name ?? '',
+			architectName: arch?.name ?? 'Unassigned',
 			taskId: t.id,
 			taskName: t.name,
 			taskDescription: t.description ?? null,

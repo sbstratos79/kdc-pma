@@ -208,7 +208,7 @@
 						{#if browserVoices.length === 0}
 							<option value="">Loading voices...</option>
 						{:else}
-							{#each browserVoices as voice}
+							{#each browserVoices as voice (voice.name)}
 								<option value={voice.name}>
 									{voice.name} ({voice.lang})
 								</option>
@@ -227,7 +227,7 @@
 						onchange={handleServerVoiceChange}
 						class="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500 focus:outline-none"
 					>
-						{#each serverVoices as voice}
+						{#each serverVoices as voice (voice.value)}
 							<option value={voice.value}>
 								{voice.label}
 							</option>

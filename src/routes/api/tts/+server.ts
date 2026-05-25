@@ -2,7 +2,6 @@
 import { json } from '@sveltejs/kit';
 import type { RequestHandler } from '@sveltejs/kit';
 import { spawn } from 'child_process';
-import { randomUUID } from 'crypto';
 
 export const POST: RequestHandler = async ({ request }) => {
 	try {
@@ -13,14 +12,11 @@ export const POST: RequestHandler = async ({ request }) => {
 		}
 
 		const voiceToUse = voice || 'en-IN-PrabhatNeural';
-		
+
 		// Convert speed (1.0 = normal) to rate format ("+0%" = normal)
 		// speed 1.0 = +0%, speed 1.5 = +50%, speed 0.5 = -50%
 		const ratePercentage = ((speed || 1.0) - 1) * 100;
 		const rate = `${ratePercentage >= 0 ? '+' : ''}${Math.round(ratePercentage)}%`;
-
-		// Generate unique request ID for error tracking
-		const requestId = randomUUID();
 
 		// Use edge-tts Python library directly
 		const pythonScript = `
@@ -71,11 +67,7 @@ if __name__ == "__main__":
 				if (code === 0 && stdout.trim()) {
 					resolve(stdout.trim());
 				} else {
-					reject(
-						new Error(
-							`edge-tts failed (code ${code}): ${stderr || 'Unknown error'}`
-						)
-					);
+					reject(new Error(`edge-tts failed (code ${code}): ${stderr || 'Unknown error'}`));
 				}
 			});
 

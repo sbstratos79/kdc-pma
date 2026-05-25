@@ -22,12 +22,12 @@ export async function createTask(input: TaskInsert): Promise<TaskSelect | null> 
 	);
 	if (!proj) throw new Error('Project not found');
 
-    if (input.architectId) {
-        const arch = await single(
-            db.select().from(architectsTable).where(eq(architectsTable.id, input.architectId)).limit(1)
-        );
-        if (!arch) throw new Error('Architect not found');
-    }
+	if (input.architectId) {
+		const arch = await single(
+			db.select().from(architectsTable).where(eq(architectsTable.id, input.architectId)).limit(1)
+		);
+		if (!arch) throw new Error('Architect not found');
+	}
 
 	return single(db.insert(tasks).values(input).returning());
 }
@@ -52,6 +52,7 @@ export async function updateTask(id: string, changes: TaskUpdate): Promise<TaskS
 export async function deleteTaskCascade(id: string): Promise<TaskSelect | null> {
 	return db.transaction(async (tx) => {
 		const deleted = await tx.delete(tasks).where(eq(tasks.id, id)).returning();
+		// eslint-disable-next-line @typescript-eslint/no-explicit-any
 		return (deleted as any)[0] ?? null;
 	});
 }
@@ -61,23 +62,25 @@ export async function getTask(id: string): Promise<TaskDTO | null> {
 	const t = await getTasks(id);
 	if (!t) return null;
 
-	const arch = await single(
-		db.select().from(architectsTable).where(eq(architectsTable.id, t.architectId)).limit(1)
-	);
+	const arch = t.architectId
+		? await single(
+				db.select().from(architectsTable).where(eq(architectsTable.id, t.architectId)).limit(1)
+			)
+		: null;
 	const proj = await single(
 		db.select().from(projectsTable).where(eq(projectsTable.id, t.projectId)).limit(1)
 	);
 
 	const dto: TaskDTO = {
 		architectId: t.architectId,
-		architectName: arch?.name ?? '',
+		architectName: arch?.name ?? 'Unassigned',
 		taskId: t.id,
 		taskName: t.name,
 		taskDescription: t.description ?? null,
 		taskStartDate: t.startDate ?? null,
 		taskDueDate: t.dueDate ?? null,
 		taskStatus: t.status,
-		addedTime: null,
+		addedTime: t.addedTime ?? null,
 		taskPriority: t.priority,
 		projectId: t.projectId,
 		projectName: proj?.name ?? ''

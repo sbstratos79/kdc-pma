@@ -26,20 +26,20 @@ export const testDb = drizzle(testClient);
 
 // DDL that mirrors schema.ts exactly.
 const STATEMENTS = [
-  `CREATE TABLE IF NOT EXISTS architects (
+	`CREATE TABLE IF NOT EXISTS architects (
     architect_id TEXT PRIMARY KEY NOT NULL,
     name         TEXT NOT NULL,
     email        TEXT,
     phone_number INTEGER
   )`,
 
-  `CREATE UNIQUE INDEX IF NOT EXISTS architects_phone_number_unique
+	`CREATE UNIQUE INDEX IF NOT EXISTS architects_phone_number_unique
      ON architects(phone_number)`,
 
-  `CREATE UNIQUE INDEX IF NOT EXISTS architects_email_unique
+	`CREATE UNIQUE INDEX IF NOT EXISTS architects_email_unique
      ON architects(email)`,
 
-  `CREATE TABLE IF NOT EXISTS projects (
+	`CREATE TABLE IF NOT EXISTS projects (
     project_id  TEXT PRIMARY KEY NOT NULL,
     name        TEXT NOT NULL,
     description TEXT,
@@ -52,7 +52,7 @@ const STATEMENTS = [
     CHECK (priority IN ('High','Medium','Low'))
   )`,
 
-  `CREATE TABLE IF NOT EXISTS tasks (
+	`CREATE TABLE IF NOT EXISTS tasks (
     task_id      TEXT PRIMARY KEY NOT NULL,
     name         TEXT NOT NULL,
     description  TEXT,
@@ -67,7 +67,7 @@ const STATEMENTS = [
                       ON DELETE CASCADE ON UPDATE CASCADE,
     CHECK (status   IN ('Planning','In Progress','Completed','On Hold','Cancelled')),
     CHECK (priority IN ('High','Medium','Low'))
-  )`,
+  )`
 ];
 
 /**
@@ -78,21 +78,25 @@ const STATEMENTS = [
  * to fire — SQLite ignores FK constraints by default.
  */
 export async function setupSchema(): Promise<void> {
-  await testClient.execute('PRAGMA foreign_keys = ON');
-  for (const stmt of STATEMENTS) {
-    await testClient.execute(stmt);
-  }
+	await testClient.execute('PRAGMA foreign_keys = ON');
+	for (const stmt of STATEMENTS) {
+		await testClient.execute(stmt);
+	}
 }
 
 /** Wipe all rows in FK-safe order (leaf tables first). Call in beforeEach. */
 export async function clearTables(): Promise<void> {
-  await testDb.delete(tasks);
-  await testDb.delete(projects);
-  await testDb.delete(architects);
+	await testDb.delete(tasks);
+	await testDb.delete(projects);
+	await testDb.delete(architects);
 }
 
 /** Close the connection and delete the temp DB file. Call in afterAll. */
 export async function closeDb(): Promise<void> {
-  await testClient.close();
-  try { unlinkSync(dbPath); } catch { /* already gone */ }
+	await testClient.close();
+	try {
+		unlinkSync(dbPath);
+	} catch {
+		/* already gone */
+	}
 }

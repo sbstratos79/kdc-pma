@@ -2,7 +2,7 @@
 
 export interface Task {
 	architectId: string | null;
-	architectName: string | null;
+	architectName: string;
 	taskId: string;
 	taskName: string;
 	taskDescription: string | null;
@@ -30,5 +30,5 @@ export interface Project {
 export interface Architect {
 	architectId: string;
 	architectName: string;
-	// tasks: Task[];
+	tasks: Task[];
 }

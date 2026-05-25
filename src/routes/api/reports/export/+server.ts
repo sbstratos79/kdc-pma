@@ -47,29 +47,57 @@ function fmtDate(iso: string | null | undefined): string {
 // ---------------------------------------------------------------------------
 
 function toCSV(headers: string[], rows: string[][]): string {
-	const escape = (v: string) => (v.includes(',') || v.includes('"') || v.includes('\n'))
-		? `"${v.replace(/"/g, '""')}"` : v;
+	const escape = (v: string) =>
+		v.includes(',') || v.includes('"') || v.includes('\n') ? `"${v.replace(/"/g, '""')}"` : v;
 	const lines = [headers.map(escape).join(',')];
 	for (const row of rows) lines.push(row.map(escape).join(','));
 	return lines.join('\r\n');
 }
 
 function projectsToCSV(data: ProjectSummaryRow[]): string {
-	const headers = ['Project', 'Status', 'Priority', 'Start Date', 'Due Date', 'Total Tasks', 'Completed', 'Overdue', 'Done %'];
+	const headers = [
+		'Project',
+		'Status',
+		'Priority',
+		'Start Date',
+		'Due Date',
+		'Total Tasks',
+		'Completed',
+		'Overdue',
+		'Done %'
+	];
 	const rows = data.map((p) => [
-		p.projectName, p.status, p.priority,
-		fmtDate(p.startDate), fmtDate(p.dueDate),
-		fmt(p.totalTasks), fmt(p.completedTasks),
-		fmt(p.overdueTasks), `${p.completionRate}%`
+		p.projectName,
+		p.status,
+		p.priority,
+		fmtDate(p.startDate),
+		fmtDate(p.dueDate),
+		fmt(p.totalTasks),
+		fmt(p.completedTasks),
+		fmt(p.overdueTasks),
+		`${p.completionRate}%`
 	]);
 	return toCSV(headers, rows);
 }
 
 function architectsToCSV(data: ArchitectWorkloadRow[]): string {
-	const headers = ['Architect', 'Total Tasks', 'Active', 'Overdue', 'In Progress', 'Completed', 'High Priority'];
+	const headers = [
+		'Architect',
+		'Total Tasks',
+		'Active',
+		'Overdue',
+		'In Progress',
+		'Completed',
+		'High Priority'
+	];
 	const rows = data.map((a) => [
-		a.architectName, fmt(a.totalTasks), fmt(a.activeTasks), fmt(a.overdueTasks),
-		fmt(a.byStatus['In Progress']), fmt(a.byStatus['Completed']), fmt(a.byPriority['High'])
+		a.architectName,
+		fmt(a.totalTasks),
+		fmt(a.activeTasks),
+		fmt(a.overdueTasks),
+		fmt(a.byStatus['In Progress']),
+		fmt(a.byStatus['Completed']),
+		fmt(a.byPriority['High'])
 	]);
 	return toCSV(headers, rows);
 }
@@ -77,8 +105,13 @@ function architectsToCSV(data: ArchitectWorkloadRow[]): string {
 function overdueToCSV(data: OverdueTaskRow[]): string {
 	const headers = ['Task', 'Project', 'Architect', 'Status', 'Priority', 'Was Due', 'Days Late'];
 	const rows = data.map((t) => [
-		t.taskName, t.projectName, t.architectName,
-		t.status, t.priority, fmtDate(t.dueDate), fmt(t.daysOverdue)
+		t.taskName,
+		t.projectName,
+		t.architectName,
+		t.status,
+		t.priority,
+		fmtDate(t.dueDate),
+		fmt(t.daysOverdue)
 	]);
 	return toCSV(headers, rows);
 }
@@ -133,44 +166,82 @@ async function buildPDF(reports: AllReports, section: string): Promise<Buffer> {
 
 	function statusColor(status: string): string {
 		switch (status) {
-			case 'Completed': return GREEN;
-			case 'In Progress': return BLUE;
-			case 'Planning': return AMBER;
-			case 'On Hold': return SLATE;
-			case 'Cancelled': return RED;
-			default: return SLATE;
+			case 'Completed':
+				return GREEN;
+			case 'In Progress':
+				return BLUE;
+			case 'Planning':
+				return AMBER;
+			case 'On Hold':
+				return SLATE;
+			case 'Cancelled':
+				return RED;
+			default:
+				return SLATE;
 		}
 	}
 
 	function priorityColor(priority: string): string {
 		switch (priority) {
-			case 'High': return RED;
-			case 'Medium': return AMBER;
-			case 'Low': return GREEN;
-			default: return SLATE;
+			case 'High':
+				return RED;
+			case 'Medium':
+				return AMBER;
+			case 'Low':
+				return GREEN;
+			default:
+				return SLATE;
 		}
 	}
 
 	// ---- helpers ----
 
 	function heading(text: string) {
-		doc.moveDown(0.5)
-			.fontSize(13).font('Helvetica-Bold').fillColor(NAVY)
+		doc
+			.moveDown(0.5)
+			.fontSize(13)
+			.font('Helvetica-Bold')
+			.fillColor(NAVY)
 			.text(text, 50, doc.y, { width: PAGE_W })
 			.moveDown(0.3);
-		doc.moveTo(50, doc.y).lineTo(50 + PAGE_W, doc.y).strokeColor('#cbd5e1').lineWidth(1).stroke();
+		doc
+			.moveTo(50, doc.y)
+			.lineTo(50 + PAGE_W, doc.y)
+			.strokeColor('#cbd5e1')
+			.lineWidth(1)
+			.stroke();
 		doc.moveDown(0.4);
 	}
 
 	function subtext(text: string) {
-		doc.fontSize(8).font('Helvetica').fillColor(SLATE).text(text, 50, doc.y, { width: PAGE_W }).moveDown(0.4);
+		doc
+			.fontSize(8)
+			.font('Helvetica')
+			.fillColor(SLATE)
+			.text(text, 50, doc.y, { width: PAGE_W })
+			.moveDown(0.4);
 	}
 
-	function statCard(label: string, value: string | number, x: number, y: number, w: number, accent: string = NAVY) {
+	function statCard(
+		label: string,
+		value: string | number,
+		x: number,
+		y: number,
+		w: number,
+		accent: string = NAVY
+	) {
 		doc.rect(x, y, w, 44).fill('#f8fafc');
 		doc.rect(x, y, 3, 44).fill(accent);
-		doc.fontSize(18).font('Helvetica-Bold').fillColor(accent).text(String(value), x + 10, y + 6, { width: w - 18, align: 'left' });
-		doc.fontSize(8).font('Helvetica').fillColor(SLATE).text(label, x + 10, y + 28, { width: w - 18 });
+		doc
+			.fontSize(18)
+			.font('Helvetica-Bold')
+			.fillColor(accent)
+			.text(String(value), x + 10, y + 6, { width: w - 18, align: 'left' });
+		doc
+			.fontSize(8)
+			.font('Helvetica')
+			.fillColor(SLATE)
+			.text(label, x + 10, y + 28, { width: w - 18 });
 	}
 
 	function table(
@@ -200,8 +271,11 @@ async function buildPDF(reports: AllReports, section: string): Promise<Buffer> {
 		let segmentStartY = y;
 		rows.forEach((row, ri) => {
 			if (y > doc.page.height - 80 && ri < rows.length - 1) {
-				doc.rect(x, segmentStartY, PAGE_W, y - segmentStartY)
-					.strokeColor('#cbd5e1').lineWidth(0.5).stroke();
+				doc
+					.rect(x, segmentStartY, PAGE_W, y - segmentStartY)
+					.strokeColor('#cbd5e1')
+					.lineWidth(0.5)
+					.stroke();
 				doc.addPage();
 				y = 50;
 				segmentStartY = y;
@@ -212,7 +286,11 @@ async function buildPDF(reports: AllReports, section: string): Promise<Buffer> {
 			row.forEach((cell, i) => {
 				const color = cellColors?.[ri]?.[i];
 				if (color) doc.fillColor(color);
-				doc.text(fmt(cell), cx, y + 5, { width: colWidths[i] - 6, lineBreak: false, ellipsis: true });
+				doc.text(fmt(cell), cx, y + 5, {
+					width: colWidths[i] - 6,
+					lineBreak: false,
+					ellipsis: true
+				});
 				if (color) doc.fillColor('#1f2937');
 				cx += colWidths[i];
 			});
@@ -221,8 +299,11 @@ async function buildPDF(reports: AllReports, section: string): Promise<Buffer> {
 
 		// Close the final border segment
 		if (y > segmentStartY) {
-			doc.rect(x, segmentStartY, PAGE_W, y - segmentStartY)
-				.strokeColor('#cbd5e1').lineWidth(0.5).stroke();
+			doc
+				.rect(x, segmentStartY, PAGE_W, y - segmentStartY)
+				.strokeColor('#cbd5e1')
+				.lineWidth(0.5)
+				.stroke();
 		}
 
 		return y + 12;
@@ -245,8 +326,16 @@ async function buildPDF(reports: AllReports, section: string): Promise<Buffer> {
 	if (logoExists) {
 		doc.image(logoPath, 50, 38, { width: 55 });
 	}
-	doc.fillColor('#1f2937').font('Helvetica-Bold').fontSize(24).text('Project Management Report', 50 + (logoExists ? 65 : 0), 38);
-	doc.fontSize(10).font('Helvetica').fillColor('#4b5563').text(`Generated: ${generatedAt}`, 50 + (logoExists ? 65 : 0), 66);
+	doc
+		.fillColor('#1f2937')
+		.font('Helvetica-Bold')
+		.fontSize(24)
+		.text('Project Management Report', 50 + (logoExists ? 65 : 0), 38);
+	doc
+		.fontSize(10)
+		.font('Helvetica')
+		.fillColor('#4b5563')
+		.text(`Generated: ${generatedAt}`, 50 + (logoExists ? 65 : 0), 66);
 	if (Object.values(reports.appliedFilters).some(Boolean)) {
 		const f = reports.appliedFilters;
 		const parts = [
@@ -255,7 +344,9 @@ async function buildPDF(reports: AllReports, section: string): Promise<Buffer> {
 			f.architectId && `Architect filter active`,
 			f.status && `Status: ${f.status}`,
 			f.priority && `Priority: ${f.priority}`
-		].filter(Boolean).join('  ·  ');
+		]
+			.filter(Boolean)
+			.join('  ·  ');
 		doc.fillColor('#6b7280').fontSize(8).text(`Filters: ${parts}`, 50, 80);
 	}
 	doc.y = 140;
@@ -271,7 +362,14 @@ async function buildPDF(reports: AllReports, section: string): Promise<Buffer> {
 	statCard('Total Projects', totalProjects, 50, cardY, cardW, BLUE);
 	statCard('Completed Projects', completedProjects, 50 + cardW + 4, cardY, cardW, GREEN);
 	statCard('Total Tasks', totalTasks, 50 + (cardW + 4) * 2, cardY, cardW, NAVY);
-	statCard('Overdue Tasks', overdueCount, 50 + (cardW + 4) * 3, cardY, cardW, overdueCount > 0 ? RED : SLATE);
+	statCard(
+		'Overdue Tasks',
+		overdueCount,
+		50 + (cardW + 4) * 3,
+		cardY,
+		cardW,
+		overdueCount > 0 ? RED : SLATE
+	);
 	doc.y = cardY + 60;
 
 	// ---- Project Summary ----
@@ -291,8 +389,12 @@ async function buildPDF(reports: AllReports, section: string): Promise<Buffer> {
 		const y = table(
 			['Project', 'Status', 'Priority', 'Due Date', 'Tasks', 'Done %'],
 			reports.projectSummary.map((p) => [
-				p.projectName, p.status, p.priority,
-				fmtDate(p.dueDate), fmt(p.totalTasks), `${p.completionRate}%`
+				p.projectName,
+				p.status,
+				p.priority,
+				fmtDate(p.dueDate),
+				fmt(p.totalTasks),
+				`${p.completionRate}%`
 			]),
 			colW,
 			doc.y,
@@ -310,8 +412,12 @@ async function buildPDF(reports: AllReports, section: string): Promise<Buffer> {
 		const y = table(
 			['Architect', 'Total', 'Active', 'Overdue', 'In Prog.', 'Completed'],
 			reports.architectWorkload.map((a) => [
-				a.architectName, fmt(a.totalTasks), fmt(a.activeTasks),
-				fmt(a.overdueTasks), fmt(a.byStatus['In Progress']), fmt(a.byStatus['Completed'])
+				a.architectName,
+				fmt(a.totalTasks),
+				fmt(a.activeTasks),
+				fmt(a.overdueTasks),
+				fmt(a.byStatus['In Progress']),
+				fmt(a.byStatus['Completed'])
 			]),
 			colW,
 			doc.y
@@ -338,7 +444,11 @@ async function buildPDF(reports: AllReports, section: string): Promise<Buffer> {
 			const y = table(
 				['Task', 'Project', 'Architect', 'Priority', 'Days Late'],
 				reports.overdueTasks.map((t) => [
-					t.taskName, t.projectName, t.architectName, t.priority, fmt(t.daysOverdue) + 'd'
+					t.taskName,
+					t.projectName,
+					t.architectName,
+					t.priority,
+					fmt(t.daysOverdue) + 'd'
 				]),
 				colW,
 				doc.y,
@@ -349,13 +459,21 @@ async function buildPDF(reports: AllReports, section: string): Promise<Buffer> {
 	}
 
 	// ---- Footer (page numbers + branding) ----
+	// eslint-disable-next-line @typescript-eslint/no-explicit-any
 	const totalPages = (doc as any).bufferedPageRange().count;
 	for (let i = 0; i < totalPages; i++) {
 		doc.switchToPage(i);
-		doc.fontSize(7).font('Helvetica').fillColor(SLATE)
-			.text('KDC Project Management', 50, doc.page.height - 30, { width: PAGE_W / 2, align: 'left' })
+		doc
+			.fontSize(7)
+			.font('Helvetica')
+			.fillColor(SLATE)
+			.text('KDC Project Management', 50, doc.page.height - 30, {
+				width: PAGE_W / 2,
+				align: 'left'
+			})
 			.text(`Page ${i + 1} of ${totalPages}`, 50, doc.page.height - 30, {
-				align: 'right', width: PAGE_W
+				align: 'right',
+				width: PAGE_W
 			});
 	}
 
@@ -379,7 +497,7 @@ export const GET: RequestHandler = async ({ url }) => {
 
 		if (format === 'pdf') {
 			const buffer = await buildPDF(reports, section);
-			return new Response(buffer, {
+			return new Response(buffer as BodyInit, {
 				headers: {
 					'Content-Type': 'application/pdf',
 					'Content-Disposition': `attachment; filename="report-${ts}.pdf"`
