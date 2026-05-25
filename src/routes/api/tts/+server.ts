@@ -1,10 +1,11 @@
 // src/routes/api/tts/+server.ts
 import { json } from '@sveltejs/kit';
 import type { RequestHandler } from '@sveltejs/kit';
+import { catchHandler } from '$lib/server/api-utils';
 import { spawn } from 'child_process';
 
-export const POST: RequestHandler = async ({ request }) => {
-	try {
+export const POST: RequestHandler = ({ request }) => {
+	return catchHandler(async () => {
 		const { text, voice, speed } = await request.json();
 
 		if (!text) {
@@ -12,13 +13,9 @@ export const POST: RequestHandler = async ({ request }) => {
 		}
 
 		const voiceToUse = voice || 'en-IN-PrabhatNeural';
-
-		// Convert speed (1.0 = normal) to rate format ("+0%" = normal)
-		// speed 1.0 = +0%, speed 1.5 = +50%, speed 0.5 = -50%
 		const ratePercentage = ((speed || 1.0) - 1) * 100;
 		const rate = `${ratePercentage >= 0 ? '+' : ''}${Math.round(ratePercentage)}%`;
 
-		// Use edge-tts Python library directly
 		const pythonScript = `
 import edge_tts
 import asyncio
@@ -38,7 +35,6 @@ async def main():
             if chunk["type"] == "audio":
                 audio_data += chunk["data"]
         
-        # Output base64 encoded audio
         print(base64.b64encode(audio_data).decode('utf-8'))
         
     except Exception as e:
@@ -75,7 +71,6 @@ if __name__ == "__main__":
 				reject(new Error(`Failed to spawn Python process: ${error.message}`));
 			});
 
-			// Set timeout to prevent hanging
 			setTimeout(() => {
 				python.kill();
 				reject(new Error('TTS generation timeout after 30 seconds'));
@@ -84,15 +79,7 @@ if __name__ == "__main__":
 
 		return json({
 			audio: audioBase64,
-			contentType: 'audio/mp3' // edge-tts outputs MP3 by default
+			contentType: 'audio/mp3'
 		});
-	} catch (error) {
-		console.error('TTS API error:', error);
-		return json(
-			{
-				error: error instanceof Error ? error.message : 'TTS generation failed'
-			},
-			{ status: 500 }
-		);
-	}
+	}, 'TTS generation failed');
 };

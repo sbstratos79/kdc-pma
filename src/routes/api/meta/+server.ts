@@ -1,18 +1,14 @@
 // src/routes/api/meta/+server.ts
 
 import { json } from '@sveltejs/kit';
+import { catchHandler } from '$lib/server/api-utils';
 import { PRIORITIES, STATUSES } from '$lib/server/db/schema';
 
-export async function GET() {
-	try {
-		const enums = {
+export function GET() {
+	return catchHandler(async () => {
+		return json({
 			status: STATUSES,
 			priority: PRIORITIES
-		};
-
-		return json(enums);
-	} catch (error) {
-		console.error('Error fetching enums:', error);
-		return json({ error: 'Failed to fetch enums' }, { status: 500 });
-	}
+		});
+	}, 'Failed to fetch enums');
 }

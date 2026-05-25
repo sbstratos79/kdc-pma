@@ -3,6 +3,7 @@
 import { json } from '@sveltejs/kit';
 import type { RequestHandler } from '@sveltejs/kit';
 import type { Project } from '$lib/types';
+import { catchHandler, isValidDate } from '$lib/server/api-utils';
 
 import {
 	createProject as repoCreateProject,
@@ -11,12 +12,6 @@ import {
 	updateProject as repoUpdateProject,
 	deleteProjectCascade
 } from '$lib/server/db/repos/project.repo';
-
-function isValidDate(dateString: string | null | undefined): boolean {
-	if (!dateString) return true;
-	const d = new Date(dateString);
-	return !isNaN(d.getTime());
-}
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function ensureProjectDto(p: any): Project {
@@ -33,9 +28,8 @@ function ensureProjectDto(p: any): Project {
 	};
 }
 
-// GET /api/projects or GET /api/projects?id=xxx
-export const GET: RequestHandler = async ({ url }) => {
-	try {
+export const GET: RequestHandler = ({ url }) => {
+	return catchHandler(async () => {
 		const id = url.searchParams.get('id');
 
 		if (id) {
@@ -49,18 +43,13 @@ export const GET: RequestHandler = async ({ url }) => {
 		const raw = await repoListProjects();
 		const projects = raw.map((r) => ensureProjectDto(r));
 		return json({ data: projects });
-	} catch (err) {
-		console.error('GET /api/projects error', err);
-		return json({ error: 'Failed to fetch projects' }, { status: 500 });
-	}
+	}, 'Failed to fetch projects');
 };
 
-// POST /api/projects
-export const POST: RequestHandler = async ({ request }) => {
-	try {
+export const POST: RequestHandler = ({ request }) => {
+	return catchHandler(async () => {
 		const body = await request.json();
 
-		// Accept either { name, ... } or frontend Project-shaped fields
 		const projectId =
 			// eslint-disable-next-line @typescript-eslint/no-explicit-any
 			globalThis.crypto && (crypto as any).randomUUID
@@ -101,15 +90,11 @@ export const POST: RequestHandler = async ({ request }) => {
 
 		const dto = await repoGetProjects(created.id);
 		return json({ data: dto ?? ensureProjectDto(created) }, { status: 201 });
-	} catch (err) {
-		console.error('POST /api/projects error', err);
-		return json({ error: err instanceof Error ? err.message : 'Unknown error' }, { status: 500 });
-	}
+	}, 'Failed to create project');
 };
 
-// PUT /api/projects/:id
-export const PUT: RequestHandler = async ({ request, url }) => {
-	try {
+export const PUT: RequestHandler = ({ request, url }) => {
+	return catchHandler(async () => {
 		const pathParts = new URL(url).pathname.split('/').filter(Boolean);
 		const idFromPath = pathParts[pathParts.length - 1];
 		const body = await request.json();
@@ -145,15 +130,11 @@ export const PUT: RequestHandler = async ({ request, url }) => {
 
 		const dto = await repoGetProjects(updated.id);
 		return json({ data: dto ?? ensureProjectDto(updated) });
-	} catch (err) {
-		console.error('PUT /api/projects error', err);
-		return json({ error: err instanceof Error ? err.message : 'Unknown error' }, { status: 500 });
-	}
+	}, 'Failed to update project');
 };
 
-// DELETE /api/projects/:id
-export const DELETE: RequestHandler = async ({ request, url }) => {
-	try {
+export const DELETE: RequestHandler = ({ request, url }) => {
+	return catchHandler(async () => {
 		let id: string | null = null;
 		try {
 			const body = await request.json().catch(() => null);
@@ -175,8 +156,5 @@ export const DELETE: RequestHandler = async ({ request, url }) => {
 		}
 
 		return json({ success: true, data: deleted });
-	} catch (err) {
-		console.error('DELETE /api/projects error', err);
-		return json({ error: err instanceof Error ? err.message : 'Unknown error' }, { status: 500 });
-	}
+	}, 'Failed to delete project');
 };

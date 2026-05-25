@@ -3,6 +3,7 @@
 import { json } from '@sveltejs/kit';
 import type { RequestHandler } from '@sveltejs/kit';
 import type { Architect } from '$lib/types';
+import { catchHandler } from '$lib/server/api-utils';
 
 import {
 	createArchitect as repoCreateArchitect,
@@ -21,9 +22,8 @@ function ensureArchitectDto(a: any): Architect {
 	};
 }
 
-// GET /api/architects or GET /api/architects?id=xxx
-export const GET: RequestHandler = async ({ url }) => {
-	try {
+export const GET: RequestHandler = ({ url }) => {
+	return catchHandler(async () => {
 		const id = url.searchParams.get('id');
 
 		if (id) {
@@ -37,18 +37,13 @@ export const GET: RequestHandler = async ({ url }) => {
 		const raw = await repoListArchitects();
 		const architects = raw.map((r) => ensureArchitectDto(r));
 		return json({ data: architects });
-	} catch (err) {
-		console.error('GET /api/architects error', err);
-		return json({ error: 'Failed to fetch architects' }, { status: 500 });
-	}
+	}, 'Failed to fetch architects');
 };
 
-// POST /api/architects
-export const POST: RequestHandler = async ({ request }) => {
-	try {
+export const POST: RequestHandler = ({ request }) => {
+	return catchHandler(async () => {
 		const body = await request.json();
 
-		// Accept either { name, ... } or frontend Architect-shaped fields
 		const architectId =
 			// eslint-disable-next-line @typescript-eslint/no-explicit-any
 			globalThis.crypto && (crypto as any).randomUUID
@@ -73,15 +68,11 @@ export const POST: RequestHandler = async ({ request }) => {
 
 		const dto = await repoGetArchitects(created.id);
 		return json({ data: dto ?? ensureArchitectDto(created) }, { status: 201 });
-	} catch (err) {
-		console.error('POST /api/architects error', err);
-		return json({ error: err instanceof Error ? err.message : 'Unknown error' }, { status: 500 });
-	}
+	}, 'Failed to create architect');
 };
 
-// PUT /api/architects/:id
-export const PUT: RequestHandler = async ({ request, url }) => {
-	try {
+export const PUT: RequestHandler = ({ request, url }) => {
+	return catchHandler(async () => {
 		const pathParts = new URL(url).pathname.split('/').filter(Boolean);
 		const idFromPath = pathParts[pathParts.length - 1];
 		const body = await request.json();
@@ -104,15 +95,11 @@ export const PUT: RequestHandler = async ({ request, url }) => {
 
 		const dto = await repoGetArchitects(updated.id);
 		return json({ data: dto ?? ensureArchitectDto(updated) });
-	} catch (err) {
-		console.error('PUT /api/architects error', err);
-		return json({ error: err instanceof Error ? err.message : 'Unknown error' }, { status: 500 });
-	}
+	}, 'Failed to update architect');
 };
 
-// DELETE /api/architects/:id
-export const DELETE: RequestHandler = async ({ request, url }) => {
-	try {
+export const DELETE: RequestHandler = ({ request, url }) => {
+	return catchHandler(async () => {
 		let id: string | null = null;
 		try {
 			const body = await request.json().catch(() => null);
@@ -134,8 +121,5 @@ export const DELETE: RequestHandler = async ({ request, url }) => {
 		}
 
 		return json({ success: true, data: deleted });
-	} catch (err) {
-		console.error('DELETE /api/architects error', err);
-		return json({ error: err instanceof Error ? err.message : 'Unknown error' }, { status: 500 });
-	}
+	}, 'Failed to delete architect');
 };

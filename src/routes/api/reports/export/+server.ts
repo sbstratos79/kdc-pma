@@ -8,7 +8,7 @@
 import type { RequestHandler } from '@sveltejs/kit';
 import fs from 'fs';
 import path from 'path';
-import type { ReportFilters } from '$lib/server/db/repos/reports.repo';
+import { catchHandler, extractFilters } from '$lib/server/api-utils';
 import {
 	getAllReports,
 	type AllReports,
@@ -16,21 +16,6 @@ import {
 	type ArchitectWorkloadRow,
 	type OverdueTaskRow
 } from '$lib/server/db/repos/reports.repo';
-
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
-
-function extractFilters(url: URL): ReportFilters {
-	return {
-		dateFrom: url.searchParams.get('dateFrom') || null,
-		dateTo: url.searchParams.get('dateTo') || null,
-		architectId: url.searchParams.get('architectId') || null,
-		status: url.searchParams.get('status') || null,
-		priority: url.searchParams.get('priority') || null,
-		search: url.searchParams.get('search') || null
-	};
-}
 
 function fmt(val: string | number | null | undefined): string {
 	if (val === null || val === undefined) return '—';
@@ -486,12 +471,12 @@ async function buildPDF(reports: AllReports, section: string): Promise<Buffer> {
 // Handler
 // ---------------------------------------------------------------------------
 
-export const GET: RequestHandler = async ({ url }) => {
+export const GET: RequestHandler = ({ url }) => {
 	const format = url.searchParams.get('format') ?? 'csv';
 	const section = url.searchParams.get('section') ?? 'all';
 	const filters = extractFilters(url);
 
-	try {
+	return catchHandler(async () => {
 		const reports = await getAllReports(filters);
 		const ts = new Date().toISOString().split('T')[0];
 
@@ -505,7 +490,6 @@ export const GET: RequestHandler = async ({ url }) => {
 			});
 		}
 
-		// Default: CSV
 		const csv = buildCSV(reports, section);
 		return new Response(csv, {
 			headers: {
@@ -513,11 +497,5 @@ export const GET: RequestHandler = async ({ url }) => {
 				'Content-Disposition': `attachment; filename="report-${ts}.csv"`
 			}
 		});
-	} catch (err) {
-		console.error('GET /api/reports/export error', err);
-		return new Response(JSON.stringify({ error: 'Export failed' }), {
-			status: 500,
-			headers: { 'Content-Type': 'application/json' }
-		});
-	}
+	}, 'Export failed');
 };

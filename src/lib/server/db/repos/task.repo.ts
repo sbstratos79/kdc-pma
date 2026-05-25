@@ -55,21 +55,21 @@ export async function deleteTaskCascade(id: string): Promise<TaskSelect | null> 
 	});
 }
 
-/** Get task with architect and project names */
+/** Get task with architect and project names (single LEFT JOIN query) */
 export async function getTask(id: string): Promise<TaskDTO | null> {
-	const t = await getTasks(id);
-	if (!t) return null;
+	const [row] = await db
+		.select()
+		.from(tasks)
+		.leftJoin(architectsTable, eq(tasks.architectId, architectsTable.id))
+		.leftJoin(projectsTable, eq(tasks.projectId, projectsTable.id))
+		.where(eq(tasks.id, id))
+		.limit(1);
 
-	const arch = t.architectId
-		? await single(
-				db.select().from(architectsTable).where(eq(architectsTable.id, t.architectId)).limit(1)
-			)
-		: null;
-	const proj = await single(
-		db.select().from(projectsTable).where(eq(projectsTable.id, t.projectId)).limit(1)
-	);
+	if (!row) return null;
 
-	const dto: TaskDTO = {
+	const { tasks: t, architects: arch, projects: proj } = row;
+
+	return {
 		architectId: t.architectId,
 		architectName: arch?.name ?? 'Unassigned',
 		taskId: t.id,
@@ -83,6 +83,37 @@ export async function getTask(id: string): Promise<TaskDTO | null> {
 		projectId: t.projectId,
 		projectName: proj?.name ?? ''
 	};
+}
 
-	return dto;
+/** List tasks with architect and project names (single LEFT JOIN query, no N+1) */
+export async function listTasksWithDetails(projectId?: string): Promise<TaskDTO[]> {
+	const query = projectId
+		? db
+				.select()
+				.from(tasks)
+				.leftJoin(architectsTable, eq(tasks.architectId, architectsTable.id))
+				.leftJoin(projectsTable, eq(tasks.projectId, projectsTable.id))
+				.where(eq(tasks.projectId, projectId))
+		: db
+				.select()
+				.from(tasks)
+				.leftJoin(architectsTable, eq(tasks.architectId, architectsTable.id))
+				.leftJoin(projectsTable, eq(tasks.projectId, projectsTable.id));
+
+	const rows = await query;
+
+	return rows.map(({ tasks: t, architects: arch, projects: proj }) => ({
+		architectId: t.architectId,
+		architectName: arch?.name ?? 'Unassigned',
+		taskId: t.id,
+		taskName: t.name,
+		taskDescription: t.description ?? null,
+		taskStartDate: t.startDate ?? null,
+		taskDueDate: t.dueDate ?? null,
+		taskStatus: t.status,
+		addedTime: t.addedTime ?? null,
+		taskPriority: t.priority,
+		projectId: t.projectId,
+		projectName: proj?.name ?? ''
+	}));
 }

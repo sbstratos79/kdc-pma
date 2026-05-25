@@ -3,20 +3,15 @@
 import { json } from '@sveltejs/kit';
 import type { RequestHandler } from '@sveltejs/kit';
 import type { Task } from '$lib/types';
+import { catchHandler, isValidDate } from '$lib/server/api-utils';
 
 import {
 	createTask as repoCreateTask,
 	getTask as repoGetTask,
-	listTasks as repoListTasks,
+	listTasksWithDetails as repoListTasksWithDetails,
 	updateTask as repoUpdateTask,
 	deleteTaskCascade
 } from '$lib/server/db/repos/task.repo';
-
-function isValidDate(dateString: string | null | undefined): boolean {
-	if (!dateString) return true; // treat empty as okay (optional)
-	const d = new Date(dateString);
-	return !isNaN(d.getTime());
-}
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function ensureTaskDto(t: any): Task {
@@ -36,9 +31,8 @@ function ensureTaskDto(t: any): Task {
 	};
 }
 
-// GET /api/tasks or GET /api/tasks?id=xxx
-export const GET: RequestHandler = async ({ url }) => {
-	try {
+export const GET: RequestHandler = ({ url }) => {
+	return catchHandler(async () => {
 		const id = url.searchParams.get('id');
 
 		if (id) {
@@ -49,24 +43,14 @@ export const GET: RequestHandler = async ({ url }) => {
 			return json({ data: dto });
 		}
 
-		const raw = await repoListTasks();
-		const tasks: Task[] = [];
-		for (const r of raw) {
-			const dto = await repoGetTask(r.id);
-			if (dto) tasks.push(dto);
-		}
+		const tasks = await repoListTasksWithDetails();
 		return json({ data: tasks });
-	} catch (err) {
-		console.error('GET /api/tasks error', err);
-		return json({ error: 'Failed to fetch tasks' }, { status: 500 });
-	}
+	}, 'Failed to fetch tasks');
 };
 
-// POST /api/tasks
-export const POST: RequestHandler = async ({ request }) => {
-	try {
+export const POST: RequestHandler = ({ request }) => {
+	return catchHandler(async () => {
 		const body = await request.json();
-		// Accept either { name, ... } or frontend Task-shaped fields
 		const taskId =
 			// eslint-disable-next-line @typescript-eslint/no-explicit-any
 			globalThis.crypto && (crypto as any).randomUUID
@@ -111,16 +95,11 @@ export const POST: RequestHandler = async ({ request }) => {
 
 		const dto = await repoGetTask(created.id);
 		return json({ data: dto ?? ensureTaskDto(created) }, { status: 201 });
-	} catch (err) {
-		console.error('POST /api/tasks error', err);
-		return json({ error: err instanceof Error ? err.message : 'Unknown error' }, { status: 500 });
-	}
+	}, 'Failed to create task');
 };
 
-// PUT /api/tasks/:id
-export const PUT: RequestHandler = async ({ request, url }) => {
-	// Single-file handler for PUT /api/tasks/:id — reads id from URL path or body
-	try {
+export const PUT: RequestHandler = ({ request, url }) => {
+	return catchHandler(async () => {
 		const pathParts = new URL(url).pathname.split('/').filter(Boolean);
 		const idFromPath = pathParts[pathParts.length - 1];
 		const body = await request.json();
@@ -158,16 +137,11 @@ export const PUT: RequestHandler = async ({ request, url }) => {
 
 		const dto = await repoGetTask(updated.id);
 		return json({ data: dto ?? ensureTaskDto(updated) });
-	} catch (err) {
-		console.error('PUT /api/tasks error', err);
-		return json({ error: err instanceof Error ? err.message : 'Unknown error' }, { status: 500 });
-	}
+	}, 'Failed to update task');
 };
 
-// DELETE /api/tasks/:id
-export const DELETE: RequestHandler = async ({ request, url }) => {
-	try {
-		// Accept either body { id } or last path segment as id
+export const DELETE: RequestHandler = ({ request, url }) => {
+	return catchHandler(async () => {
 		let id: string | null = null;
 		try {
 			const body = await request.json().catch(() => null);
@@ -189,8 +163,5 @@ export const DELETE: RequestHandler = async ({ request, url }) => {
 		}
 
 		return json({ success: true, data: deleted });
-	} catch (err) {
-		console.error('DELETE /api/tasks error', err);
-		return json({ error: err instanceof Error ? err.message : 'Unknown error' }, { status: 500 });
-	}
+	}, 'Failed to delete task');
 };

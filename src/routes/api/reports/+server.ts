@@ -2,7 +2,7 @@
 
 import { json } from '@sveltejs/kit';
 import type { RequestHandler } from '@sveltejs/kit';
-import type { ReportFilters } from '$lib/server/db/repos/reports.repo';
+import { catchHandler, extractFilters } from '$lib/server/api-utils';
 import {
 	getAllReports,
 	getProjectStatusSummary,
@@ -11,23 +11,11 @@ import {
 	getStatusAndPriorityBreakdown
 } from '$lib/server/db/repos/reports.repo';
 
-function extractFilters(url: URL): ReportFilters {
-	return {
-		dateFrom: url.searchParams.get('dateFrom') || null,
-		dateTo: url.searchParams.get('dateTo') || null,
-		architectId: url.searchParams.get('architectId') || null,
-		status: url.searchParams.get('status') || null,
-		priority: url.searchParams.get('priority') || null,
-		search: url.searchParams.get('search') || null
-	};
-}
-
-// GET /api/reports?type=all&dateFrom=2025-01-01&dateTo=2025-12-31&architectId=xxx&status=xxx&priority=xxx
-export const GET: RequestHandler = async ({ url }) => {
+export const GET: RequestHandler = ({ url }) => {
 	const type = url.searchParams.get('type') ?? 'all';
 	const filters = extractFilters(url);
 
-	try {
+	return catchHandler(async () => {
 		switch (type) {
 			case 'project-summary':
 				return json({ data: await getProjectStatusSummary(filters) });
@@ -52,8 +40,5 @@ export const GET: RequestHandler = async ({ url }) => {
 			default:
 				return json({ data: await getAllReports(filters) });
 		}
-	} catch (err) {
-		console.error(`GET /api/reports?type=${type} error`, err);
-		return json({ error: 'Failed to fetch report data' }, { status: 500 });
-	}
+	}, `Failed to fetch report data (type=${type})`);
 };

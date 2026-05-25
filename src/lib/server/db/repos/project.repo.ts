@@ -6,7 +6,7 @@ import {
 	architects as architectsTable
 } from '$lib/server/db/schema';
 import { db } from '$lib/server/db/queries/db';
-import { eq } from 'drizzle-orm';
+import { eq, inArray } from 'drizzle-orm';
 import { single } from './_helpers';
 
 import type { Project as ProjectDTO, Task as TaskDTO } from '$lib/types';
@@ -43,39 +43,35 @@ export async function deleteProjectCascade(id: string): Promise<ProjectSelect | 
 	});
 }
 
-/** Get project with tasks and architect names */
+/** Get project with tasks and architect names (batched architect queries, no N+1) */
 export async function getProjectWithTasks(id: string): Promise<ProjectDTO | null> {
 	const proj = await getProjects(id);
 	if (!proj) return null;
 
-	// load tasks
 	const rawTasks = await db.select().from(tasksTable).where(eq(tasksTable.projectId, id));
 
-	const tasks: TaskDTO[] = [];
-	for (const t of rawTasks) {
-		const arch = t.architectId
-			? await single(
-					db.select().from(architectsTable).where(eq(architectsTable.id, t.architectId)).limit(1)
-				)
-			: null;
+	const architectIds = [...new Set(rawTasks.map((t) => t.architectId).filter(Boolean))];
+	const architectList = architectIds.length
+		? await db.select().from(architectsTable).where(inArray(architectsTable.id, architectIds))
+		: [];
+	const architectMap = new Map(architectList.map((a) => [a.id, a.name]));
 
-		tasks.push({
-			architectId: t.architectId,
-			architectName: arch?.name ?? 'Unassigned',
-			taskId: t.id,
-			taskName: t.name,
-			taskDescription: t.description ?? null,
-			taskStartDate: t.startDate ?? null,
-			taskDueDate: t.dueDate ?? null,
-			addedTime: t.addedTime ?? null,
-			taskStatus: t.status,
-			taskPriority: t.priority,
-			projectId: proj.id,
-			projectName: proj.name
-		});
-	}
+	const tasks: TaskDTO[] = rawTasks.map((t) => ({
+		architectId: t.architectId,
+		architectName: t.architectId ? (architectMap.get(t.architectId) ?? 'Unassigned') : 'Unassigned',
+		taskId: t.id,
+		taskName: t.name,
+		taskDescription: t.description ?? null,
+		taskStartDate: t.startDate ?? null,
+		taskDueDate: t.dueDate ?? null,
+		addedTime: t.addedTime ?? null,
+		taskStatus: t.status,
+		taskPriority: t.priority,
+		projectId: proj.id,
+		projectName: proj.name
+	}));
 
-	const dto: ProjectDTO = {
+	return {
 		projectId: proj.id,
 		projectName: proj.name,
 		projectDescription: proj.description ?? null,
@@ -86,6 +82,4 @@ export async function getProjectWithTasks(id: string): Promise<ProjectDTO | null
 		projectPriority: proj.priority,
 		tasks
 	};
-
-	return dto;
 }
