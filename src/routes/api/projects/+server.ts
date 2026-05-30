@@ -3,6 +3,7 @@
 import { json } from '@sveltejs/kit';
 import type { RequestHandler } from '@sveltejs/kit';
 import { catchHandler, isValidDate } from '$lib/server/api-utils';
+import { entityChangeEmitter } from '$lib/server/entityChangeEmitter';
 
 import {
 	createProject as repoCreateProject,
@@ -67,6 +68,7 @@ export const POST: RequestHandler = ({ request }) => {
 		}
 
 		const dto = await repoGetProjects(created.id);
+		entityChangeEmitter.emit('change', { entity: 'projects', action: 'create' });
 		return json({ data: dto ?? created }, { status: 201 });
 	}, 'Failed to create project');
 };
@@ -107,6 +109,7 @@ export const PUT: RequestHandler = ({ request, url }) => {
 		}
 
 		const dto = await repoGetProjects(updated.id);
+		entityChangeEmitter.emit('change', { entity: 'projects', action: 'update' });
 		return json({ data: dto ?? updated });
 	}, 'Failed to update project');
 };
@@ -133,6 +136,7 @@ export const DELETE: RequestHandler = ({ request, url }) => {
 			return json({ error: 'Project not found or not deleted' }, { status: 404 });
 		}
 
+		entityChangeEmitter.emit('change', { entity: 'projects', action: 'delete' });
 		return json({ success: true, data: deleted });
 	}, 'Failed to delete project');
 };

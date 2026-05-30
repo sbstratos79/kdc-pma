@@ -3,6 +3,7 @@
 import { json } from '@sveltejs/kit';
 import type { RequestHandler } from '@sveltejs/kit';
 import { catchHandler } from '$lib/server/api-utils';
+import { entityChangeEmitter } from '$lib/server/entityChangeEmitter';
 
 import {
 	createArchitect as repoCreateArchitect,
@@ -51,6 +52,7 @@ export const POST: RequestHandler = ({ request }) => {
 		}
 
 		const dto = await repoGetArchitects(created.id);
+		entityChangeEmitter.emit('change', { entity: 'architects', action: 'create' });
 		return json({ data: dto ?? created }, { status: 201 });
 	}, 'Failed to create architect');
 };
@@ -78,6 +80,7 @@ export const PUT: RequestHandler = ({ request, url }) => {
 		}
 
 		const dto = await repoGetArchitects(updated.id);
+		entityChangeEmitter.emit('change', { entity: 'architects', action: 'update' });
 		return json({ data: dto ?? updated });
 	}, 'Failed to update architect');
 };
@@ -104,6 +107,7 @@ export const DELETE: RequestHandler = ({ request, url }) => {
 			return json({ error: 'Architect not found or not deleted' }, { status: 404 });
 		}
 
+		entityChangeEmitter.emit('change', { entity: 'architects', action: 'delete' });
 		return json({ success: true, data: deleted });
 	}, 'Failed to delete architect');
 };

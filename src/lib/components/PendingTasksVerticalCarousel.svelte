@@ -98,11 +98,6 @@
 		};
 		window.addEventListener('focus', handleFocus);
 
-		const refreshInterval = window.setInterval(async () => {
-			await Promise.all([architectsStore.refresh(), projectsStore.refresh(), tasksStore.refresh()]);
-			tasksStore.loadWithNames(architectsState.byId, projectsState.byId);
-		}, 30000);
-
 		(async () => {
 			try {
 				await Promise.all([architectsStore.load(), projectsStore.load(), tasksStore.load()]);
@@ -118,7 +113,6 @@
 		return () => {
 			window.removeEventListener('resize', updateSlidesPerPage);
 			window.removeEventListener('focus', handleFocus);
-			if (refreshInterval) window.clearInterval(refreshInterval);
 		};
 	});
 </script>

@@ -3,6 +3,7 @@
 import { db } from '$lib/server/db/queries/db';
 import { projects, tasks, architects } from '$lib/server/db/schema';
 import { STATUSES, PRIORITIES } from '$lib/server/db/schema';
+import { and, eq, like, lt, lte, gte, ne, isNotNull, or, isNull } from 'drizzle-orm';
 import type {
 	ReportFilters,
 	ProjectSummaryRow,
@@ -56,6 +57,64 @@ function inDateRange(
 
 function matchesSearch(value: string, search: string): boolean {
 	return value.toLowerCase().includes(search.toLowerCase());
+}
+
+// ---------------------------------------------------------------------------
+// SQL WHERE builders (used by standalone functions for server-side filtering)
+// ---------------------------------------------------------------------------
+
+function buildProjectConditions(filters: ReportFilters) {
+	const conditions = [];
+	if (filters.search) {
+		conditions.push(
+			or(
+				like(projects.name, `%${filters.search}%`),
+				like(projects.description, `%${filters.search}%`)
+			)
+		);
+	}
+	if (filters.status) conditions.push(eq(projects.status, filters.status));
+	if (filters.priority) conditions.push(eq(projects.priority, filters.priority));
+	if (filters.dateFrom)
+		conditions.push(or(gte(projects.dueDate, filters.dateFrom), isNull(projects.dueDate)));
+	if (filters.dateTo)
+		conditions.push(or(lte(projects.dueDate, filters.dateTo), isNull(projects.dueDate)));
+	return conditions.length ? and(...conditions) : undefined;
+}
+
+function buildTaskConditions(filters: ReportFilters, opts?: { overdue?: boolean }) {
+	const conditions = buildTaskBaseConditions(filters, opts);
+	if (filters.status) conditions.push(eq(tasks.status, filters.status));
+	if (filters.priority) conditions.push(eq(tasks.priority, filters.priority));
+	return conditions.length ? and(...conditions) : undefined;
+}
+
+function buildTaskBaseConditions(filters: ReportFilters, opts?: { overdue?: boolean }) {
+	const conditions = [];
+	if (opts?.overdue) {
+		conditions.push(isNotNull(tasks.dueDate));
+		conditions.push(lt(tasks.dueDate, todayIso()));
+		conditions.push(ne(tasks.status, 'Completed'));
+		conditions.push(ne(tasks.status, 'Cancelled'));
+	}
+	if (filters.search) {
+		conditions.push(
+			or(like(tasks.name, `%${filters.search}%`), like(tasks.description, `%${filters.search}%`))
+		);
+	}
+	if (filters.architectId) conditions.push(eq(tasks.architectId, filters.architectId));
+	if (filters.dateFrom)
+		conditions.push(or(gte(tasks.dueDate, filters.dateFrom), isNull(tasks.dueDate)));
+	if (filters.dateTo)
+		conditions.push(or(lte(tasks.dueDate, filters.dateTo), isNull(tasks.dueDate)));
+	return conditions;
+}
+
+function buildArchitectConditions(filters: ReportFilters) {
+	const conditions = [];
+	if (filters.search) conditions.push(like(architects.name, `%${filters.search}%`));
+	if (filters.architectId) conditions.push(eq(architects.id, filters.architectId));
+	return conditions.length ? and(...conditions) : undefined;
 }
 
 // ---------------------------------------------------------------------------
@@ -241,8 +300,11 @@ export async function getProjectStatusSummary(
 	filters: ReportFilters = {}
 ): Promise<ProjectSummaryRow[]> {
 	const [allProjects, allTasks] = await Promise.all([
-		db.select().from(projects),
-		db.select().from(tasks)
+		db.select().from(projects).where(buildProjectConditions(filters)),
+		db
+			.select()
+			.from(tasks)
+			.where(and(...buildTaskBaseConditions(filters)))
 	]);
 	return getProjectStatusSummaryFromData(allProjects, allTasks, filters);
 }
@@ -251,15 +313,18 @@ export async function getArchitectWorkload(
 	filters: ReportFilters = {}
 ): Promise<ArchitectWorkloadRow[]> {
 	const [allArchitects, allTasks] = await Promise.all([
-		db.select().from(architects),
-		db.select().from(tasks)
+		db.select().from(architects).where(buildArchitectConditions(filters)),
+		db.select().from(tasks).where(buildTaskConditions(filters))
 	]);
 	return getArchitectWorkloadFromData(allArchitects, allTasks, filters);
 }
 
 export async function getOverdueTasks(filters: ReportFilters = {}): Promise<OverdueTaskRow[]> {
 	const [allTasks, allProjects, allArchitects] = await Promise.all([
-		db.select().from(tasks),
+		db
+			.select()
+			.from(tasks)
+			.where(buildTaskConditions(filters, { overdue: true })),
 		db.select().from(projects),
 		db.select().from(architects)
 	]);
@@ -271,8 +336,11 @@ export async function getStatusAndPriorityBreakdown(filters: ReportFilters = {})
 	priorityDistribution: PriorityDistributionRow[];
 }> {
 	const [allProjects, allTasks] = await Promise.all([
-		db.select().from(projects),
-		db.select().from(tasks)
+		db.select().from(projects).where(buildProjectConditions(filters)),
+		db
+			.select()
+			.from(tasks)
+			.where(and(...buildTaskBaseConditions(filters)))
 	]);
 	return getStatusAndPriorityBreakdownFromData(allProjects, allTasks, filters);
 }

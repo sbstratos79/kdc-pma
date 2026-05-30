@@ -3,6 +3,7 @@
 import { json } from '@sveltejs/kit';
 import type { RequestHandler } from '@sveltejs/kit';
 import { catchHandler, isValidDate } from '$lib/server/api-utils';
+import { entityChangeEmitter } from '$lib/server/entityChangeEmitter';
 
 import {
 	createTask as repoCreateTask,
@@ -70,6 +71,7 @@ export const POST: RequestHandler = ({ request }) => {
 		}
 
 		const dto = await repoGetTask(created.id);
+		entityChangeEmitter.emit('change', { entity: 'tasks', action: 'create' });
 		return json({ data: dto ?? created }, { status: 201 });
 	}, 'Failed to create task');
 };
@@ -112,6 +114,7 @@ export const PUT: RequestHandler = ({ request, url }) => {
 		}
 
 		const dto = await repoGetTask(updated.id);
+		entityChangeEmitter.emit('change', { entity: 'tasks', action: 'update' });
 		return json({ data: dto ?? updated });
 	}, 'Failed to update task');
 };
@@ -138,6 +141,7 @@ export const DELETE: RequestHandler = ({ request, url }) => {
 			return json({ error: 'Task not found or not deleted' }, { status: 404 });
 		}
 
+		entityChangeEmitter.emit('change', { entity: 'tasks', action: 'delete' });
 		return json({ success: true, data: deleted });
 	}, 'Failed to delete task');
 };

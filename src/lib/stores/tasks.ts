@@ -64,11 +64,14 @@ export function createTasksStore() {
 		}
 	}
 
-	async function load(force = false) {
+	async function load(force = false, skipEnrich = false) {
 		store.update((s) => ({ ...s, loading: true }));
 		try {
 			const rawData = await fetcher.fetch(force);
-			const data = rawData.map((item: unknown) => enrichTask(mapItem(item)));
+			const data = rawData.map((item: unknown) => {
+				const task = mapItem(item);
+				return skipEnrich ? task : enrichTask(task);
+			});
 
 			const byId: Record<string, Task> = {};
 			data.forEach((t: Task) => (byId[t.taskId] = t));

@@ -103,13 +103,6 @@
 		};
 		window.addEventListener('focus', handleFocus);
 
-		// Optional: Auto-refresh every 30 seconds
-		const refreshInterval = setInterval(async () => {
-			await Promise.all([architectsStore.refresh(), projectsStore.refresh(), tasksStore.refresh()]);
-			// CRITICAL: Re-enrich tasks after refresh
-			tasksStore.loadWithNames(architectsState.byId, projectsState.byId);
-		}, 30000); // 30 seconds
-
 		// async load
 		(async () => {
 			try {
@@ -128,7 +121,6 @@
 		return () => {
 			window.removeEventListener('focus', handleFocus);
 			window.removeEventListener('resize', updateSlidesPerPage);
-			clearInterval(refreshInterval);
 		};
 	});
 </script>

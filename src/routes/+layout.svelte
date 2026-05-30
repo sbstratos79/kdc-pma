@@ -2,7 +2,15 @@
 	import '../app.css';
 	import { page } from '$app/stores';
 	import NavBar from '$lib/components/NavBar.svelte';
+	import { connectEntitySSE, disconnectEntitySSE } from '$lib/services/entitySseService';
+	import { onMount } from 'svelte';
+
 	let { children } = $props();
+
+	onMount(() => {
+		connectEntitySSE();
+		return disconnectEntitySSE;
+	});
 </script>
 
 <div class="flex h-screen flex-col overflow-hidden">
