@@ -2,7 +2,6 @@
 
 import { json } from '@sveltejs/kit';
 import type { RequestHandler } from '@sveltejs/kit';
-import type { Architect } from '$lib/types';
 import { catchHandler } from '$lib/server/api-utils';
 
 import {
@@ -13,15 +12,6 @@ import {
 	deleteArchitect
 } from '$lib/server/db/repos/architect.repo';
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-function ensureArchitectDto(a: any): Architect {
-	return {
-		architectId: a.id ?? a.architectId ?? '',
-		architectName: a.name ?? a.architectName ?? '',
-		tasks: a.tasks ?? []
-	};
-}
-
 export const GET: RequestHandler = ({ url }) => {
 	return catchHandler(async () => {
 		const id = url.searchParams.get('id');
@@ -31,11 +21,10 @@ export const GET: RequestHandler = ({ url }) => {
 			if (!dto) {
 				return json({ error: 'Architect not found' }, { status: 404 });
 			}
-			return json({ data: ensureArchitectDto(dto) });
+			return json({ data: dto });
 		}
 
-		const raw = await repoListArchitects();
-		const architects = raw.map((r) => ensureArchitectDto(r));
+		const architects = await repoListArchitects();
 		return json({ data: architects });
 	}, 'Failed to fetch architects');
 };
@@ -44,12 +33,7 @@ export const POST: RequestHandler = ({ request }) => {
 	return catchHandler(async () => {
 		const body = await request.json();
 
-		const architectId =
-			// eslint-disable-next-line @typescript-eslint/no-explicit-any
-			globalThis.crypto && (crypto as any).randomUUID
-				? // eslint-disable-next-line @typescript-eslint/no-explicit-any
-					(crypto as any).randomUUID()
-				: String(Date.now()) + Math.random();
+		const architectId = crypto.randomUUID();
 
 		const architectName = (body.name ?? body.architectName ?? '').trim();
 
@@ -67,7 +51,7 @@ export const POST: RequestHandler = ({ request }) => {
 		}
 
 		const dto = await repoGetArchitects(created.id);
-		return json({ data: dto ?? ensureArchitectDto(created) }, { status: 201 });
+		return json({ data: dto ?? created }, { status: 201 });
 	}, 'Failed to create architect');
 };
 
@@ -94,7 +78,7 @@ export const PUT: RequestHandler = ({ request, url }) => {
 		}
 
 		const dto = await repoGetArchitects(updated.id);
-		return json({ data: dto ?? ensureArchitectDto(updated) });
+		return json({ data: dto ?? updated });
 	}, 'Failed to update architect');
 };
 

@@ -67,10 +67,7 @@ export function createTasksStore() {
 	async function load(force = false) {
 		store.update((s) => ({ ...s, loading: true }));
 		try {
-			const result = await fetcher.fetch(force);
-			// eslint-disable-next-line @typescript-eslint/no-explicit-any
-			const rawData = Array.isArray(result) ? result : (result as any)?.data || [];
-
+			const rawData = await fetcher.fetch(force);
 			const data = rawData.map((item: unknown) => enrichTask(mapItem(item)));
 
 			const byId: Record<string, Task> = {};
@@ -195,8 +192,7 @@ export function createTasksStore() {
 				throw new Error(errData.error || 'Create task failed');
 			}
 			const json = await res.json();
-			// eslint-disable-next-line @typescript-eslint/no-explicit-any
-			const created = json?.data as any;
+			const created = json.data;
 			const mapped = mapItem(created);
 
 			removeLocal(payload.taskId);
@@ -224,8 +220,7 @@ export function createTasksStore() {
 				throw new Error(errData.error || 'Update failed');
 			}
 			const json = await res.json();
-			// eslint-disable-next-line @typescript-eslint/no-explicit-any
-			const updated = json?.data as any;
+			const updated = json.data;
 			const mapped = mapItem(updated);
 			if (mapped) updateLocal(id, mapped);
 

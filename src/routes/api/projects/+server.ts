@@ -2,7 +2,6 @@
 
 import { json } from '@sveltejs/kit';
 import type { RequestHandler } from '@sveltejs/kit';
-import type { Project } from '$lib/types';
 import { catchHandler, isValidDate } from '$lib/server/api-utils';
 
 import {
@@ -13,21 +12,6 @@ import {
 	deleteProjectCascade
 } from '$lib/server/db/repos/project.repo';
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-function ensureProjectDto(p: any): Project {
-	return {
-		projectId: p.id ?? p.projectId ?? '',
-		projectName: p.name ?? p.projectName ?? '',
-		projectDescription: p.description ?? p.projectDescription ?? null,
-		projectStartDate: p.startDate ?? p.projectStartDate ?? null,
-		projectDueDate: p.dueDate ?? p.projectDueDate ?? null,
-		addedTime: p.addedTime ?? null,
-		projectStatus: p.status ?? p.projectStatus ?? '',
-		projectPriority: p.priority ?? p.projectPriority ?? '',
-		tasks: p.tasks ?? []
-	};
-}
-
 export const GET: RequestHandler = ({ url }) => {
 	return catchHandler(async () => {
 		const id = url.searchParams.get('id');
@@ -37,11 +21,10 @@ export const GET: RequestHandler = ({ url }) => {
 			if (!dto) {
 				return json({ error: 'Project not found' }, { status: 404 });
 			}
-			return json({ data: ensureProjectDto(dto) });
+			return json({ data: dto });
 		}
 
-		const raw = await repoListProjects();
-		const projects = raw.map((r) => ensureProjectDto(r));
+		const projects = await repoListProjects();
 		return json({ data: projects });
 	}, 'Failed to fetch projects');
 };
@@ -50,12 +33,7 @@ export const POST: RequestHandler = ({ request }) => {
 	return catchHandler(async () => {
 		const body = await request.json();
 
-		const projectId =
-			// eslint-disable-next-line @typescript-eslint/no-explicit-any
-			globalThis.crypto && (crypto as any).randomUUID
-				? // eslint-disable-next-line @typescript-eslint/no-explicit-any
-					(crypto as any).randomUUID()
-				: String(Date.now()) + Math.random();
+		const projectId = crypto.randomUUID();
 
 		const projectName = (body.name ?? body.projectName ?? '').trim();
 		const startDate = body.startDate ?? body.projectStartDate ?? null;
@@ -89,7 +67,7 @@ export const POST: RequestHandler = ({ request }) => {
 		}
 
 		const dto = await repoGetProjects(created.id);
-		return json({ data: dto ?? ensureProjectDto(created) }, { status: 201 });
+		return json({ data: dto ?? created }, { status: 201 });
 	}, 'Failed to create project');
 };
 
@@ -129,7 +107,7 @@ export const PUT: RequestHandler = ({ request, url }) => {
 		}
 
 		const dto = await repoGetProjects(updated.id);
-		return json({ data: dto ?? ensureProjectDto(updated) });
+		return json({ data: dto ?? updated });
 	}, 'Failed to update project');
 };
 

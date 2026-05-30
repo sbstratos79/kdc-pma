@@ -310,9 +310,10 @@
 			projectStatus: 'Planning',
 			projectPriority: 'Medium',
 			projectStartDate: new Date(),
-			projectDueDate: null
-			// eslint-disable-next-line @typescript-eslint/no-explicit-any
-		} as any;
+			projectDueDate: null,
+			addedTime: null,
+			tasks: []
+		} as unknown as Project;
 	}
 </script>
 

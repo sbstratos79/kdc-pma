@@ -21,6 +21,7 @@ import {
 } from '../helpers/factories';
 
 // Import the export handler directly
+import { mockRequestEvent } from '../helpers/mock-request-event';
 import { GET } from '../../routes/api/reports/export/+server';
 
 beforeAll(() => setupSchema());
@@ -32,8 +33,7 @@ afterAll(() => closeDb());
 // ---------------------------------------------------------------------------
 async function exportCSV(section: string, extra = ''): Promise<string> {
 	const url = new URL(`http://localhost/api/reports/export?format=csv&section=${section}${extra}`);
-	// eslint-disable-next-line @typescript-eslint/no-explicit-any
-	const response = await GET({ url } as any);
+	const response = await GET(mockRequestEvent(url));
 	return response.text();
 }
 
@@ -43,15 +43,13 @@ async function exportCSV(section: string, extra = ''): Promise<string> {
 describe('CSV export — content-type and headers', () => {
 	it('returns Content-Type: text/csv', async () => {
 		const url = new URL('http://localhost/api/reports/export?format=csv&section=projects');
-		// eslint-disable-next-line @typescript-eslint/no-explicit-any
-		const response = await GET({ url } as any);
+		const response = await GET(mockRequestEvent(url));
 		expect(response.headers.get('content-type')).toMatch(/text\/csv/);
 	});
 
 	it('includes a Content-Disposition attachment header', async () => {
 		const url = new URL('http://localhost/api/reports/export?format=csv&section=projects');
-		// eslint-disable-next-line @typescript-eslint/no-explicit-any
-		const response = await GET({ url } as any);
+		const response = await GET(mockRequestEvent(url));
 		expect(response.headers.get('content-disposition')).toMatch(/attachment/);
 		expect(response.headers.get('content-disposition')).toMatch(/\.csv/);
 	});

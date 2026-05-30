@@ -362,12 +362,12 @@
 			taskPriority: 'Medium',
 			taskStartDate: new Date(), // <-- Date instance
 			taskDueDate: null,
+			addedTime: null,
 			architectId: '',
 			architectName: '',
 			projectId: '',
 			projectName: ''
-			// eslint-disable-next-line @typescript-eslint/no-explicit-any
-		} as any;
+		} as unknown as Task;
 	}
 </script>
 

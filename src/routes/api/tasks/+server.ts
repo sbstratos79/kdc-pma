@@ -2,7 +2,6 @@
 
 import { json } from '@sveltejs/kit';
 import type { RequestHandler } from '@sveltejs/kit';
-import type { Task } from '$lib/types';
 import { catchHandler, isValidDate } from '$lib/server/api-utils';
 
 import {
@@ -12,24 +11,6 @@ import {
 	updateTask as repoUpdateTask,
 	deleteTaskCascade
 } from '$lib/server/db/repos/task.repo';
-
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-function ensureTaskDto(t: any): Task {
-	return {
-		architectId: t.architectId ?? null,
-		architectName: t.architectName ?? '',
-		taskId: t.id ?? t.taskId ?? '',
-		taskName: t.name ?? t.taskName ?? '',
-		taskDescription: t.description ?? t.taskDescription ?? null,
-		taskStartDate: t.startDate ?? t.taskStartDate ?? null,
-		addedTime: t.addedTime ?? null,
-		taskDueDate: t.dueDate ?? t.taskDueDate ?? null,
-		taskStatus: t.status ?? t.taskStatus ?? '',
-		taskPriority: t.priority ?? t.taskPriority ?? '',
-		projectId: t.projectId ?? '',
-		projectName: t.projectName ?? ''
-	};
-}
 
 export const GET: RequestHandler = ({ url }) => {
 	return catchHandler(async () => {
@@ -51,12 +32,7 @@ export const GET: RequestHandler = ({ url }) => {
 export const POST: RequestHandler = ({ request }) => {
 	return catchHandler(async () => {
 		const body = await request.json();
-		const taskId =
-			// eslint-disable-next-line @typescript-eslint/no-explicit-any
-			globalThis.crypto && (crypto as any).randomUUID
-				? // eslint-disable-next-line @typescript-eslint/no-explicit-any
-					(crypto as any).randomUUID()
-				: String(Date.now()) + Math.random();
+		const taskId = crypto.randomUUID();
 
 		const taskName = (body.name ?? body.taskName ?? '').trim();
 		const projectId = body.projectId ?? body.project_id ?? null;
@@ -94,7 +70,7 @@ export const POST: RequestHandler = ({ request }) => {
 		}
 
 		const dto = await repoGetTask(created.id);
-		return json({ data: dto ?? ensureTaskDto(created) }, { status: 201 });
+		return json({ data: dto ?? created }, { status: 201 });
 	}, 'Failed to create task');
 };
 
@@ -136,7 +112,7 @@ export const PUT: RequestHandler = ({ request, url }) => {
 		}
 
 		const dto = await repoGetTask(updated.id);
-		return json({ data: dto ?? ensureTaskDto(updated) });
+		return json({ data: dto ?? updated });
 	}, 'Failed to update task');
 };
 

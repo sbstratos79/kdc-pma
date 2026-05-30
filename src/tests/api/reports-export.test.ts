@@ -18,6 +18,7 @@ import {
 	NEXT_WEEK,
 	daysAgo
 } from '../helpers/factories';
+import { mockRequestEvent } from '../helpers/mock-request-event';
 import { GET } from '../../routes/api/reports/export/+server';
 
 beforeAll(() => setupSchema());
@@ -28,8 +29,7 @@ beforeEach(() => clearTables());
 // ---------------------------------------------------------------------------
 async function callExport(qs: string): Promise<Response> {
 	const url = new URL(`http://localhost/api/reports/export?${qs}`);
-	// eslint-disable-next-line @typescript-eslint/no-explicit-any
-	return GET({ url } as any);
+	return GET(mockRequestEvent(url));
 }
 
 // ---------------------------------------------------------------------------

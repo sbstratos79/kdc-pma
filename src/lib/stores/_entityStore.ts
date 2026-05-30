@@ -29,9 +29,7 @@ export function createEntityStore<T, TCreatePayload>(config: StoreConfig<T, TCre
 	async function load(force = false) {
 		store.update((s) => ({ ...s, loading: true, error: null }));
 		try {
-			const result = await fetcher.fetch(force);
-			// eslint-disable-next-line @typescript-eslint/no-explicit-any
-			const rawData = Array.isArray(result) ? result : (result as any)?.data || [];
+			const rawData = await fetcher.fetch(force);
 			const data = rawData.map(mapItem);
 			const byId: Record<string, T> = {};
 			data.forEach((item: T) => (byId[getId(item)] = item));
@@ -95,8 +93,7 @@ export function createEntityStore<T, TCreatePayload>(config: StoreConfig<T, TCre
 				throw new Error(errData.error || 'Create failed');
 			}
 			const json = await res.json();
-			// eslint-disable-next-line @typescript-eslint/no-explicit-any
-			const created = json?.data as any;
+			const created = json.data;
 			const mapped = mapItem(created);
 
 			removeLocal(getId(temp));
@@ -124,8 +121,7 @@ export function createEntityStore<T, TCreatePayload>(config: StoreConfig<T, TCre
 				throw new Error(errData.error || 'Update failed');
 			}
 			const json = await res.json();
-			// eslint-disable-next-line @typescript-eslint/no-explicit-any
-			const updated = json?.data as any;
+			const updated = json.data;
 			const mapped = mapItem(updated);
 			if (mapped) updateLocal(id, mapped);
 			return mapped;

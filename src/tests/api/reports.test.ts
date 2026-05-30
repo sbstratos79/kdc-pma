@@ -19,6 +19,7 @@ import {
 	TOMORROW,
 	NEXT_WEEK
 } from '../helpers/factories';
+import { mockRequestEvent } from '../helpers/mock-request-event';
 import { GET } from '../../routes/api/reports/+server';
 
 beforeAll(() => setupSchema());
@@ -29,8 +30,7 @@ beforeEach(() => clearTables());
 // ---------------------------------------------------------------------------
 async function getReport(qs: string) {
 	const url = new URL(`http://localhost/api/reports?${qs}`);
-	// eslint-disable-next-line @typescript-eslint/no-explicit-any
-	const response = await GET({ url } as any);
+	const response = await GET(mockRequestEvent(url));
 	return response.json();
 }
 
