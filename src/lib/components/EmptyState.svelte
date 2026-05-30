@@ -2,6 +2,8 @@
 	let { message }: { message: string } = $props();
 </script>
 
-<div class="rounded-lg border border-yellow-200 bg-yellow-50 p-4 text-yellow-700">
+<div
+	class="rounded-lg border border-yellow-200 bg-yellow-50 p-4 text-center text-2xl font-bold text-yellow-700"
+>
 	<p>{message}</p>
 </div>

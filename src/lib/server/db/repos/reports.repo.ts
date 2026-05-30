@@ -3,93 +3,33 @@
 import { db } from '$lib/server/db/queries/db';
 import { projects, tasks, architects } from '$lib/server/db/schema';
 import { STATUSES, PRIORITIES } from '$lib/server/db/schema';
+import type {
+	ReportFilters,
+	ProjectSummaryRow,
+	ArchitectWorkloadRow,
+	OverdueTaskRow,
+	StatusFunnelRow,
+	PriorityDistributionRow,
+	AllReports
+} from '$lib/types';
 
-// ---------------------------------------------------------------------------
-// Filters
-// ---------------------------------------------------------------------------
-
-export interface ReportFilters {
-	/** ISO date string e.g. "2025-01-01" — filters by addedTime >= dateFrom */
-	dateFrom?: string | null;
-	/** ISO date string — filters by addedTime <= dateTo */
-	dateTo?: string | null;
-	/** Only include tasks (and projects with those tasks) for this architect */
-	architectId?: string | null;
-	/** Filter projects/tasks by status */
-	status?: string | null;
-	/** Filter projects/tasks by priority */
-	priority?: string | null;
-	/** Search term matching project/task/architect name */
-	search?: string | null;
-}
-
-// ---------------------------------------------------------------------------
-// Types
-// ---------------------------------------------------------------------------
-
-export interface ProjectSummaryRow {
-	projectId: string;
-	projectName: string;
-	status: string;
-	priority: string;
-	startDate: string | null;
-	dueDate: string | null;
-	addedTime: string | null;
-	totalTasks: number;
-	completedTasks: number;
-	overdueTasks: number;
-	completionRate: number;
-	isOverdue: boolean;
-}
-
-export interface ArchitectWorkloadRow {
-	architectId: string;
-	architectName: string;
-	totalTasks: number;
-	activeTasks: number;
-	overdueTasks: number;
-	byStatus: Record<string, number>;
-	byPriority: Record<string, number>;
-}
-
-export interface OverdueTaskRow {
-	taskId: string;
-	taskName: string;
-	status: string;
-	priority: string;
-	dueDate: string;
-	daysOverdue: number;
-	projectId: string;
-	projectName: string;
-	architectId: string | null;
-	architectName: string;
-}
-
-export interface StatusFunnelRow {
-	status: string;
-	projectCount: number;
-	taskCount: number;
-}
-
-export interface PriorityDistributionRow {
-	priority: string;
-	projectCount: number;
-	taskCount: number;
-}
-
-export interface AllReports {
-	projectSummary: ProjectSummaryRow[];
-	architectWorkload: ArchitectWorkloadRow[];
-	overdueTasks: OverdueTaskRow[];
-	statusFunnel: StatusFunnelRow[];
-	priorityDistribution: PriorityDistributionRow[];
-	appliedFilters: ReportFilters;
-	generatedAt: string;
-}
+export type {
+	ReportFilters,
+	ProjectSummaryRow,
+	ArchitectWorkloadRow,
+	OverdueTaskRow,
+	StatusFunnelRow,
+	PriorityDistributionRow,
+	AllReports
+};
 
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
+
+type ProjectRow = typeof projects.$inferSelect;
+type TaskRow = typeof tasks.$inferSelect;
+type ArchitectRow = typeof architects.$inferSelect;
 
 function todayIso(): string {
 	return new Date().toISOString().split('T')[0];
@@ -114,26 +54,25 @@ function inDateRange(
 	return true;
 }
 
+function matchesSearch(value: string, search: string): boolean {
+	return value.toLowerCase().includes(search.toLowerCase());
+}
+
 // ---------------------------------------------------------------------------
-// Report queries
+// Internal: operate on pre-loaded data (used by getAllReports)
 // ---------------------------------------------------------------------------
 
-export async function getProjectStatusSummary(
-	filters: ReportFilters = {}
-): Promise<ProjectSummaryRow[]> {
-	const [allProjects, allTasks] = await Promise.all([
-		db.select().from(projects),
-		db.select().from(tasks)
-	]);
-
+function getProjectStatusSummaryFromData(
+	allProjects: ProjectRow[],
+	allTasks: TaskRow[],
+	filters: ReportFilters
+): ProjectSummaryRow[] {
 	const today = todayIso();
+	const search = filters.search ?? '';
 
 	let filteredProjects = allProjects
 		.filter(
-			(p) =>
-				!filters.search ||
-				p.name.toLowerCase().includes(filters.search.toLowerCase()) ||
-				(p.description ?? '').toLowerCase().includes(filters.search.toLowerCase())
+			(p) => !search || matchesSearch(p.name, search) || matchesSearch(p.description ?? '', search)
 		)
 		.filter((p) => !filters.status || p.status === filters.status)
 		.filter((p) => !filters.priority || p.priority === filters.priority)
@@ -141,10 +80,7 @@ export async function getProjectStatusSummary(
 
 	const filteredTasks = allTasks
 		.filter(
-			(t) =>
-				!filters.search ||
-				t.name.toLowerCase().includes(filters.search.toLowerCase()) ||
-				(t.description ?? '').toLowerCase().includes(filters.search.toLowerCase())
+			(t) => !search || matchesSearch(t.name, search) || matchesSearch(t.description ?? '', search)
 		)
 		.filter((t) => !filters.architectId || t.architectId === filters.architectId)
 		.filter((t) => inDateRange(t.dueDate, filters.dateFrom, filters.dateTo));
@@ -179,19 +115,15 @@ export async function getProjectStatusSummary(
 	});
 }
 
-export async function getArchitectWorkload(
-	filters: ReportFilters = {}
-): Promise<ArchitectWorkloadRow[]> {
-	const [allArchitects, allTasks] = await Promise.all([
-		db.select().from(architects),
-		db.select().from(tasks)
-	]);
-
+function getArchitectWorkloadFromData(
+	allArchitects: ArchitectRow[],
+	allTasks: TaskRow[],
+	filters: ReportFilters
+): ArchitectWorkloadRow[] {
 	const today = todayIso();
+	const search = filters.search ?? '';
 
-	let filteredArchitects = allArchitects.filter(
-		(a) => !filters.search || a.name.toLowerCase().includes(filters.search.toLowerCase())
-	);
+	let filteredArchitects = allArchitects.filter((a) => !search || matchesSearch(a.name, search));
 	if (filters.architectId) {
 		filteredArchitects = filteredArchitects.filter((a) => a.id === filters.architectId);
 	}
@@ -222,13 +154,14 @@ export async function getArchitectWorkload(
 	});
 }
 
-export async function getOverdueTasks(filters: ReportFilters = {}): Promise<OverdueTaskRow[]> {
+function getOverdueTasksFromData(
+	allTasks: TaskRow[],
+	allProjects: ProjectRow[],
+	allArchitects: ArchitectRow[],
+	filters: ReportFilters
+): OverdueTaskRow[] {
 	const today = todayIso();
-	const [allTasks, allProjects, allArchitects] = await Promise.all([
-		db.select().from(tasks),
-		db.select().from(projects),
-		db.select().from(architects)
-	]);
+	const search = filters.search ?? '';
 
 	const projectMap = new Map(allProjects.map((p) => [p.id, p.name]));
 	const architectMap = new Map(allArchitects.map((a) => [a.id, a.name]));
@@ -239,13 +172,10 @@ export async function getOverdueTasks(filters: ReportFilters = {}): Promise<Over
 		)
 		.filter(
 			(t) =>
-				!filters.search ||
-				t.name.toLowerCase().includes(filters.search.toLowerCase()) ||
-				(projectMap.get(t.projectId) ?? '').toLowerCase().includes(filters.search.toLowerCase()) ||
-				(t.architectId &&
-					(architectMap.get(t.architectId) ?? '')
-						.toLowerCase()
-						.includes(filters.search.toLowerCase()))
+				!search ||
+				matchesSearch(t.name, search) ||
+				matchesSearch(projectMap.get(t.projectId) ?? '', search) ||
+				(t.architectId && matchesSearch(architectMap.get(t.architectId) ?? '', search))
 		)
 		.filter((t) => !filters.status || t.status === filters.status)
 		.filter((t) => !filters.architectId || t.architectId === filters.architectId)
@@ -266,31 +196,23 @@ export async function getOverdueTasks(filters: ReportFilters = {}): Promise<Over
 		.sort((a, b) => b.daysOverdue - a.daysOverdue);
 }
 
-export async function getStatusAndPriorityBreakdown(filters: ReportFilters = {}): Promise<{
-	statusFunnel: StatusFunnelRow[];
-	priorityDistribution: PriorityDistributionRow[];
-}> {
-	const [allProjects, allTasks] = await Promise.all([
-		db.select().from(projects),
-		db.select().from(tasks)
-	]);
+function getStatusAndPriorityBreakdownFromData(
+	allProjects: ProjectRow[],
+	allTasks: TaskRow[],
+	filters: ReportFilters
+): { statusFunnel: StatusFunnelRow[]; priorityDistribution: PriorityDistributionRow[] } {
+	const search = filters.search ?? '';
 
 	const filteredProjects = allProjects
 		.filter(
-			(p) =>
-				!filters.search ||
-				p.name.toLowerCase().includes(filters.search.toLowerCase()) ||
-				(p.description ?? '').toLowerCase().includes(filters.search.toLowerCase())
+			(p) => !search || matchesSearch(p.name, search) || matchesSearch(p.description ?? '', search)
 		)
 		.filter((p) => !filters.priority || p.priority === filters.priority)
 		.filter((p) => inDateRange(p.dueDate, filters.dateFrom, filters.dateTo));
 
 	const filteredTasks = allTasks
 		.filter(
-			(t) =>
-				!filters.search ||
-				t.name.toLowerCase().includes(filters.search.toLowerCase()) ||
-				(t.description ?? '').toLowerCase().includes(filters.search.toLowerCase())
+			(t) => !search || matchesSearch(t.name, search) || matchesSearch(t.description ?? '', search)
 		)
 		.filter((t) => !filters.architectId || t.architectId === filters.architectId)
 		.filter((t) => !filters.priority || t.priority === filters.priority)
@@ -311,13 +233,61 @@ export async function getStatusAndPriorityBreakdown(filters: ReportFilters = {})
 	return { statusFunnel, priorityDistribution };
 }
 
-export async function getAllReports(filters: ReportFilters = {}): Promise<AllReports> {
-	const [projectSummary, architectWorkload, overdueTasks, breakdown] = await Promise.all([
-		getProjectStatusSummary(filters),
-		getArchitectWorkload(filters),
-		getOverdueTasks(filters),
-		getStatusAndPriorityBreakdown(filters)
+// ---------------------------------------------------------------------------
+// Public API: standalone functions (fetch own data)
+// ---------------------------------------------------------------------------
+
+export async function getProjectStatusSummary(
+	filters: ReportFilters = {}
+): Promise<ProjectSummaryRow[]> {
+	const [allProjects, allTasks] = await Promise.all([
+		db.select().from(projects),
+		db.select().from(tasks)
 	]);
+	return getProjectStatusSummaryFromData(allProjects, allTasks, filters);
+}
+
+export async function getArchitectWorkload(
+	filters: ReportFilters = {}
+): Promise<ArchitectWorkloadRow[]> {
+	const [allArchitects, allTasks] = await Promise.all([
+		db.select().from(architects),
+		db.select().from(tasks)
+	]);
+	return getArchitectWorkloadFromData(allArchitects, allTasks, filters);
+}
+
+export async function getOverdueTasks(filters: ReportFilters = {}): Promise<OverdueTaskRow[]> {
+	const [allTasks, allProjects, allArchitects] = await Promise.all([
+		db.select().from(tasks),
+		db.select().from(projects),
+		db.select().from(architects)
+	]);
+	return getOverdueTasksFromData(allTasks, allProjects, allArchitects, filters);
+}
+
+export async function getStatusAndPriorityBreakdown(filters: ReportFilters = {}): Promise<{
+	statusFunnel: StatusFunnelRow[];
+	priorityDistribution: PriorityDistributionRow[];
+}> {
+	const [allProjects, allTasks] = await Promise.all([
+		db.select().from(projects),
+		db.select().from(tasks)
+	]);
+	return getStatusAndPriorityBreakdownFromData(allProjects, allTasks, filters);
+}
+
+export async function getAllReports(filters: ReportFilters = {}): Promise<AllReports> {
+	const [allProjects, allTasks, allArchitects] = await Promise.all([
+		db.select().from(projects),
+		db.select().from(tasks),
+		db.select().from(architects)
+	]);
+
+	const projectSummary = getProjectStatusSummaryFromData(allProjects, allTasks, filters);
+	const architectWorkload = getArchitectWorkloadFromData(allArchitects, allTasks, filters);
+	const overdueTasks = getOverdueTasksFromData(allTasks, allProjects, allArchitects, filters);
+	const breakdown = getStatusAndPriorityBreakdownFromData(allProjects, allTasks, filters);
 
 	return {
 		projectSummary,

@@ -54,7 +54,7 @@
 			{/if}
 		</span>
 		<span class="self-center text-2xl font-semibold whitespace-nowrap dark:text-white"
-			>{title ? title : 'Test'}</span
+			>{title || 'Project Dashboard'}</span
 		>
 	</NavBrand>
 	<NavHamburger />

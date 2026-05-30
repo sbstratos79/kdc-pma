@@ -13,63 +13,7 @@
 	import { enumsStore, architectsStore } from '$lib/stores';
 	import Chart from 'chart.js/auto';
 	import LoadingSpinner from '$lib/components/LoadingSpinner.svelte';
-
-	// ---------------------------------------------------------------------------
-	// Types (client-side mirror of reports.repo.ts — no server imports on client)
-	// ---------------------------------------------------------------------------
-	interface ProjectSummaryRow {
-		projectId: string;
-		projectName: string;
-		status: string;
-		priority: string;
-		startDate: string | null;
-		dueDate: string | null;
-		totalTasks: number;
-		completedTasks: number;
-		overdueTasks: number;
-		completionRate: number;
-		isOverdue: boolean;
-	}
-	interface ArchitectWorkloadRow {
-		architectId: string;
-		architectName: string;
-		totalTasks: number;
-		activeTasks: number;
-		overdueTasks: number;
-		byStatus: Record<string, number>;
-		byPriority: Record<string, number>;
-	}
-	interface OverdueTaskRow {
-		taskId: string;
-		taskName: string;
-		status: string;
-		priority: string;
-		dueDate: string;
-		daysOverdue: number;
-		projectId: string;
-		projectName: string;
-		architectId: string | null;
-		architectName: string;
-	}
-	interface StatusFunnelRow {
-		status: string;
-		projectCount: number;
-		taskCount: number;
-	}
-	interface PriorityDistRow {
-		priority: string;
-		projectCount: number;
-		taskCount: number;
-	}
-	interface AllReports {
-		projectSummary: ProjectSummaryRow[];
-		architectWorkload: ArchitectWorkloadRow[];
-		overdueTasks: OverdueTaskRow[];
-		statusFunnel: StatusFunnelRow[];
-		priorityDistribution: PriorityDistRow[];
-		appliedFilters: Record<string, string | null>;
-		generatedAt: string;
-	}
+	import type { AllReports } from '$lib/types';
 
 	// ---------------------------------------------------------------------------
 	// State

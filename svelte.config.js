@@ -7,10 +7,7 @@ const config = {
 	// for more information about preprocessors
 	preprocess: vitePreprocess(),
 	kit: {
-		adapter: adapter(),
-		alias: {
-			$db: 'src/lib/db'
-		}
+		adapter: adapter()
 	},
 	compilerOptions: {
 		experimental: {

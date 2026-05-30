@@ -53,14 +53,11 @@ describe('unauthenticated requests', () => {
 		}
 	);
 
-	it.each(['POST', 'PUT', 'PATCH', 'DELETE'])(
-		'blocks %s /api/tasks with 401',
-		async (method) => {
-			const { response, resolve } = await callHandle(method, '/api/tasks');
-			expect(response.status).toBe(401);
-			expect(resolve).not.toHaveBeenCalled();
-		}
-	);
+	it.each(['POST', 'PUT', 'PATCH', 'DELETE'])('blocks %s /api/tasks with 401', async (method) => {
+		const { response, resolve } = await callHandle(method, '/api/tasks');
+		expect(response.status).toBe(401);
+		expect(resolve).not.toHaveBeenCalled();
+	});
 
 	it('blocks POST to nested /api/projects/123', async () => {
 		const { response, resolve } = await callHandle('POST', '/api/projects/123');

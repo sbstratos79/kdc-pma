@@ -44,7 +44,11 @@ describe('POST /api/auth/login', () => {
 		expect(res.status).toBe(200);
 		const json = await res.json();
 		expect(json.success).toBe(true);
-		expect(event.cookies.set).toHaveBeenCalledWith('auth', '1', expect.objectContaining({ httpOnly: true }));
+		expect(event.cookies.set).toHaveBeenCalledWith(
+			'auth',
+			'1',
+			expect.objectContaining({ httpOnly: true })
+		);
 	});
 
 	it('returns 401 with an incorrect password', async () => {

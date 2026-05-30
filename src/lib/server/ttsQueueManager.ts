@@ -1,5 +1,6 @@
 // src/lib/server/ttsQueueManager.ts
 import { EventEmitter } from 'events';
+import { TTSQueue } from '$lib/services/ttsQueue';
 
 interface TaskAssignment {
 	taskId: string;
@@ -13,16 +14,30 @@ interface TaskAssignment {
 
 class TTSQueueManager extends EventEmitter {
 	private seenTaskIds: Set<string> = new Set();
-	private announcementQueue: TaskAssignment[] = [];
-	private isProcessing: boolean = false;
+	private queue: TTSQueue<TaskAssignment>;
 	private serverStartTime: number;
 	private initialized: boolean = false;
 
 	constructor() {
 		super();
 		this.serverStartTime = Date.now();
-		// Increase max listeners to handle multiple SSE connections
 		this.setMaxListeners(100);
+
+		this.queue = new TTSQueue<TaskAssignment>({
+			estimateDelay: (assignment) => {
+				const wordCount =
+					assignment.taskName.split(' ').length +
+					assignment.architectName.split(' ').length +
+					assignment.projectName.split(' ').length +
+					4;
+				return wordCount * 150 + 1000;
+			}
+		});
+
+		this.queue.onPlay(async (assignment) => {
+			this.emit('play-announcement', assignment);
+		});
+
 		console.log('[TTS Queue] Manager initialized at', new Date(this.serverStartTime).toISOString());
 	}
 
@@ -51,13 +66,7 @@ class TTSQueueManager extends EventEmitter {
 		const newAssignments: TaskAssignment[] = [];
 
 		tasks.forEach((task) => {
-			// Only consider tasks that:
-			// 1. Have an architect assigned
-			// 2. Haven't been seen before
-			// 3. Were created after server start (to avoid announcing old tasks on restart)
 			if (task.architectId && task.architectName && !this.seenTaskIds.has(task.taskId)) {
-				// Check if task was created after server start
-				// Assume taskId contains timestamp or check creation date if available
 				const sqlTimestamp = task.addedTime;
 				const jsTimestamp = sqlTimestamp
 					? new Date(sqlTimestamp.replace(' ', 'T') + 'Z').getTime()
@@ -83,61 +92,15 @@ class TTSQueueManager extends EventEmitter {
 
 		if (newAssignments.length > 0) {
 			console.log(`[TTS Queue] Found ${newAssignments.length} new assignments:`, newAssignments);
-			this.queueAnnouncements(newAssignments);
+			newAssignments.forEach((a) => this.emit('announcement', a));
+			this.queue.enqueueMany(newAssignments);
 		}
-	}
-
-	private queueAnnouncements(assignments: TaskAssignment[]) {
-		this.announcementQueue.push(...assignments);
-		console.log(`[TTS Queue] Queue size: ${this.announcementQueue.length}`);
-
-		assignments.forEach((assignment) => {
-			this.emit('announcement', assignment);
-		});
-
-		// Start processing if not already processing
-		if (!this.isProcessing) {
-			this.processQueue();
-		}
-	}
-
-	private async processQueue() {
-		if (this.isProcessing || this.announcementQueue.length === 0) return;
-
-		this.isProcessing = true;
-		console.log('[TTS Queue] Starting queue processing');
-
-		while (this.announcementQueue.length > 0) {
-			const assignment = this.announcementQueue.shift()!;
-
-			console.log('[TTS Queue] Processing announcement:', assignment);
-
-			this.emit('play-announcement', assignment);
-
-			// Wait for estimated speech duration + buffer
-			// Rough estimate: 150ms per word + 1s buffer
-			const wordCount =
-				assignment.taskName.split(' ').length +
-				assignment.architectName.split(' ').length +
-				assignment.projectName.split(' ').length +
-				4; // "New task for" and "for"
-			const estimatedDuration = wordCount * 150 + 1000;
-
-			await this.delay(estimatedDuration);
-		}
-
-		this.isProcessing = false;
-		console.log('[TTS Queue] Queue processing complete');
-	}
-
-	private delay(ms: number): Promise<void> {
-		return new Promise((resolve) => setTimeout(resolve, ms));
 	}
 
 	getStatus() {
 		return {
-			queueLength: this.announcementQueue.length,
-			isProcessing: this.isProcessing,
+			queueLength: this.queue.length,
+			isProcessing: this.queue.isProcessing,
 			seenTasksCount: this.seenTaskIds.size,
 			initialized: this.initialized,
 			serverStartTime: this.serverStartTime
@@ -151,8 +114,7 @@ class TTSQueueManager extends EventEmitter {
 	}
 
 	resetQueue() {
-		this.announcementQueue = [];
-		this.isProcessing = false;
+		this.queue.clear();
 		console.log('[TTS Queue] Queue reset');
 	}
 }

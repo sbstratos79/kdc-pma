@@ -7,7 +7,8 @@ export default defineConfig({
 	resolve: {
 		alias: {
 			// mirrors the $lib alias SvelteKit sets up in vite.config.ts
-			$lib: path.resolve('./src/lib')
+			$lib: path.resolve('./src/lib'),
+			'$env/static/public': path.resolve('./src/tests/helpers/env-public-mock.ts')
 		}
 	},
 	test: {

@@ -1,5 +1,7 @@
 // src/lib/services/ttsNotificationService.ts
 
+import { TTSQueue } from '$lib/services/ttsQueue';
+
 type TTSSettings = {
 	engine: 'browser' | 'server';
 	enabled: boolean;
@@ -30,12 +32,16 @@ class TTSNotificationService {
 	};
 	private audioContext: AudioContext | null = null;
 	private eventSource: EventSource | null = null;
-	private announcementQueue: TaskAssignment[] = [];
-	private isPlaying: boolean = false;
+	private queue: TTSQueue<TaskAssignment>;
 	private isBrowser: boolean = false;
 
 	constructor() {
 		this.isBrowser = typeof window !== 'undefined';
+
+		this.queue = new TTSQueue<TaskAssignment>({ estimateDelay: () => 500 });
+		this.queue.onPlay(async (assignment) => {
+			await this.playAnnouncement(assignment);
+		});
 
 		if (this.isBrowser) {
 			if ('speechSynthesis' in window) {
@@ -48,8 +54,6 @@ class TTSNotificationService {
 				this.audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
 			}
 			this.loadSettings();
-
-			// component calls init() on mount
 		}
 	}
 
@@ -110,27 +114,8 @@ class TTSNotificationService {
 			return;
 		}
 
-		this.announcementQueue.push(assignment);
-		console.log('[TTS Client] Queue size:', this.announcementQueue.length);
-
-		if (!this.isPlaying) {
-			this.processQueue();
-		}
-	}
-
-	private async processQueue() {
-		if (this.isPlaying || this.announcementQueue.length === 0) return;
-
-		this.isPlaying = true;
-
-		while (this.announcementQueue.length > 0) {
-			const assignment = this.announcementQueue.shift()!;
-			await this.playAnnouncement(assignment);
-
-			await this.delay(500);
-		}
-
-		this.isPlaying = false;
+		console.log('[TTS Client] Queue size:', this.queue.length + 1);
+		this.queue.enqueue(assignment);
 	}
 
 	private async playAnnouncement(assignment: TaskAssignment) {
@@ -266,7 +251,6 @@ class TTSNotificationService {
 				};
 
 				audioElement.play().catch(() => {
-					// fallback: wait for user gesture
 					window.addEventListener(
 						'click',
 						() => {
@@ -283,10 +267,6 @@ class TTSNotificationService {
 		}
 	}
 
-	private delay(ms: number): Promise<void> {
-		return new Promise((resolve) => setTimeout(resolve, ms));
-	}
-
 	setEnabled(enabled: boolean) {
 		this.settings.enabled = enabled;
 		this.saveSettings();
@@ -301,8 +281,7 @@ class TTSNotificationService {
 		if (this.synth) {
 			this.synth.cancel();
 		}
-		this.announcementQueue = [];
-		this.isPlaying = false;
+		this.queue.clear();
 	}
 
 	isAvailable(): boolean {
