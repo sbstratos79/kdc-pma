@@ -3,6 +3,7 @@
 	import ProjectGrid from '$lib/components/ProjectGrid.svelte';
 	import PendingTasksVerticalCarousel from '$lib/components/PendingTasksVerticalCarousel.svelte';
 	import PendingTasksCarousel from '$lib/components/PendingTasksCarousel.svelte';
+	import FooterLegend from '$lib/components/FooterLegend.svelte';
 	import { onMount, onDestroy } from 'svelte';
 	import { ttsNotificationService } from '$lib/services/ttsNotificationService';
 
@@ -37,6 +38,7 @@
 	<div class="flex min-w-0 flex-1 flex-col gap-2 lg:h-full lg:gap-6 lg:overflow-y-auto">
 		<ArchitectProjectTaskGrid />
 		<ProjectGrid />
+		<FooterLegend />
 	</div>
 </div>
 

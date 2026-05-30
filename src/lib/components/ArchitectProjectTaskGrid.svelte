@@ -12,6 +12,10 @@
 	} from '$lib/utils/colorUtils';
 	import { formatDate } from '$lib/utils/dateUtils';
 	import type { Architect, Project, Task } from '$lib/types';
+	import LoadingSpinner from '$lib/components/LoadingSpinner.svelte';
+	import ErrorState from '$lib/components/ErrorState.svelte';
+	import EmptyState from '$lib/components/EmptyState.svelte';
+	import CarouselArrowIcon from '$lib/components/CarouselArrowIcon.svelte';
 
 	let loading = $state(true);
 	let error: string | null = $state(null);
@@ -329,18 +333,11 @@
 </script>
 
 {#if loading}
-	<div class="flex h-64 items-center justify-center">
-		<div class="h-16 w-16 animate-spin rounded-full border-b-2 border-blue-600"></div>
-	</div>
+	<LoadingSpinner />
 {:else if error}
-	<div class="rounded-lg border border-red-200 bg-red-50 p-4 text-red-700">
-		<h2 class="mb-2 font-semibold">Error loading data</h2>
-		<p>{error}</p>
-	</div>
+	<ErrorState message={error} />
 {:else if visibleArchitects.length === 0}
-	<div class="rounded-lg border border-yellow-200 bg-yellow-50 p-4 text-yellow-700">
-		<p>No architects found.</p>
-	</div>
+	<EmptyState message="No architects found." />
 {:else}
 	<Carousel.Root
 		defaultPage={0}
@@ -351,7 +348,7 @@
 		loop
 		allowMouseDrag
 		spacing="10px"
-		class="group/carousel relative max-w-full overflow-hidden"
+		class="carousel-root group/carousel"
 		{slidesPerPage}
 	>
 		<Carousel.Context>
@@ -393,7 +390,7 @@
 											loop
 											allowMouseDrag
 											spacing="10px"
-											class="group/carousel relative max-w-full overflow-hidden"
+											class="carousel-root group/carousel"
 										>
 											<Carousel.Context>
 												{#snippet render(api)}
@@ -505,43 +502,13 @@
 											</Carousel.Context>
 
 											<!-- Inner navigation controls -->
-											<Carousel.Control class="pointer-events-none absolute inset-0">
-												<Carousel.PrevTrigger
-													class="pointer-events-auto absolute top-1/2 left-2 -translate-y-1/2 rounded-full bg-white/90 p-2 opacity-0 shadow-lg transition-opacity duration-200 group-hover/carousel:opacity-100 hover:scale-110 hover:bg-white disabled:cursor-not-allowed disabled:opacity-50"
-												>
-													<svg
-														xmlns="http://www.w3.org/2000/svg"
-														width="24"
-														height="24"
-														viewBox="0 0 24 24"
-														fill="none"
-														stroke="currentColor"
-														stroke-width="2"
-														stroke-linecap="round"
-														stroke-linejoin="round"
-														class="text-gray-800"
-													>
-														<path d="m15 18-6-6 6-6" />
-													</svg>
+											<Carousel.Control class="carousel-control">
+												<Carousel.PrevTrigger class="carousel-trigger left-2">
+													<CarouselArrowIcon direction="left" />
 												</Carousel.PrevTrigger>
 
-												<Carousel.NextTrigger
-													class="pointer-events-auto absolute top-1/2 right-2 -translate-y-1/2 rounded-full bg-white/90 p-2 opacity-0 shadow-lg transition-opacity duration-200 group-hover/carousel:opacity-100 hover:scale-110 hover:bg-white disabled:cursor-not-allowed disabled:opacity-50"
-												>
-													<svg
-														xmlns="http://www.w3.org/2000/svg"
-														width="24"
-														height="24"
-														viewBox="0 0 24 24"
-														fill="none"
-														stroke="currentColor"
-														stroke-width="2"
-														stroke-linecap="round"
-														stroke-linejoin="round"
-														class="text-gray-800"
-													>
-														<path d="m9 18 6-6-6-6" />
-													</svg>
+												<Carousel.NextTrigger class="carousel-trigger right-2">
+													<CarouselArrowIcon direction="right" />
 												</Carousel.NextTrigger>
 											</Carousel.Control>
 										</Carousel.Root>
@@ -555,73 +522,14 @@
 		</Carousel.Context>
 
 		<!-- OUTER navigation controls -->
-		<Carousel.Control class="pointer-events-none absolute inset-0">
-			<Carousel.PrevTrigger
-				class="pointer-events-auto absolute top-1/2 left-2 -translate-y-1/2 rounded-full bg-white/90 p-2 opacity-0 shadow-lg transition-opacity duration-200 group-hover/carousel:opacity-100 hover:scale-110 hover:bg-white disabled:cursor-not-allowed disabled:opacity-50"
-			>
-				<svg
-					xmlns="http://www.w3.org/2000/svg"
-					width="24"
-					height="24"
-					viewBox="0 0 24 24"
-					fill="none"
-					stroke="currentColor"
-					stroke-width="2"
-					stroke-linecap="round"
-					stroke-linejoin="round"
-					class="text-gray-800"
-				>
-					<path d="m15 18-6-6 6-6" />
-				</svg>
+		<Carousel.Control class="carousel-control">
+			<Carousel.PrevTrigger class="carousel-trigger left-2">
+				<CarouselArrowIcon direction="left" />
 			</Carousel.PrevTrigger>
 
-			<Carousel.NextTrigger
-				class="pointer-events-auto absolute top-1/2 right-2 -translate-y-1/2 rounded-full bg-white/90 p-2 opacity-0 shadow-lg transition-opacity duration-200 group-hover/carousel:opacity-100 hover:scale-110 hover:bg-white disabled:cursor-not-allowed disabled:opacity-50"
-			>
-				<svg
-					xmlns="http://www.w3.org/2000/svg"
-					width="24"
-					height="24"
-					viewBox="0 0 24 24"
-					fill="none"
-					stroke="currentColor"
-					stroke-width="2"
-					stroke-linecap="round"
-					stroke-linejoin="round"
-					class="text-gray-800"
-				>
-					<path d="m9 18 6-6-6-6" />
-				</svg>
+			<Carousel.NextTrigger class="carousel-trigger right-2">
+				<CarouselArrowIcon direction="right" />
 			</Carousel.NextTrigger>
 		</Carousel.Control>
 	</Carousel.Root>
 {/if}
-
-<style>
-	/* Custom scrollbar for subtasks */
-	.overflow-y-auto::-webkit-scrollbar {
-		width: 4px;
-	}
-
-	.overflow-y-auto::-webkit-scrollbar-track {
-		background: #f1f5f9;
-		border-radius: 2px;
-	}
-
-	.overflow-y-auto::-webkit-scrollbar-thumb {
-		background: #cbd5e1;
-		border-radius: 2px;
-	}
-
-	.overflow-y-auto::-webkit-scrollbar-thumb:hover {
-		background: #cbd5f9;
-	}
-
-	/* clamp helper */
-	.line-clamp-3 {
-		display: -webkit-box;
-		-webkit-line-clamp: 3;
-		-webkit-box-orient: vertical;
-		overflow: hidden;
-	}
-</style>

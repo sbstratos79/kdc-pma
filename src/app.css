@@ -157,6 +157,63 @@
 	}
 }
 
+@layer components {
+	/* ── Carousel ─────────────────────────────────────────────── */
+	.carousel-root {
+		@apply relative max-w-full overflow-hidden;
+	}
+	.carousel-control {
+		@apply pointer-events-none absolute inset-0;
+	}
+	.carousel-trigger {
+		@apply pointer-events-auto absolute top-1/2 -translate-y-1/2 rounded-full bg-white/90 p-2 opacity-0 shadow-lg transition-opacity duration-200 group-hover/carousel:opacity-100 hover:scale-110 hover:bg-white disabled:cursor-not-allowed disabled:opacity-50;
+	}
+
+	/* ── Table views ──────────────────────────────────────────── */
+	.table-heading {
+		@apply mb-4 text-2xl font-bold text-gray-800;
+	}
+	.table-controls {
+		@apply mb-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-4;
+	}
+	.btn-add {
+		@apply shrink-0 self-start rounded-md bg-blue-600 px-3 py-1.5 text-sm font-medium whitespace-nowrap text-white shadow-sm hover:bg-blue-700;
+	}
+	.btn-primary {
+		@apply rounded-md bg-blue-600 px-3 py-2 text-sm font-medium text-white shadow-sm transition-colors hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50;
+	}
+	.empty-state-box {
+		@apply mb-4 rounded-lg border border-yellow-200 bg-yellow-50 p-4 text-center text-2xl font-bold text-yellow-700;
+	}
+
+	/* ── Reports ──────────────────────────────────────────────── */
+	.report-grid-wrapper {
+		@apply overflow-x-auto rounded-lg border border-gray-200 bg-white shadow-sm;
+	}
+	.report-chart-header {
+		@apply border-b border-gray-100 p-4;
+	}
+	.report-chart-title {
+		@apply text-sm font-semibold text-gray-800;
+	}
+	.report-chart-subtitle {
+		@apply mt-1 text-xs text-gray-500;
+	}
+
+	/* ── TTS Settings ─────────────────────────────────────────── */
+	.tts-label {
+		@apply mb-2 block text-sm font-medium text-gray-700;
+	}
+	.tts-select {
+		@apply w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500 focus:outline-none;
+	}
+
+	/* ── Alerts ───────────────────────────────────────────────── */
+	.alert-error {
+		@apply rounded-lg border border-red-200 bg-red-50 p-4 text-red-700;
+	}
+}
+
 .wx-willow-theme {
 	--wx-table-select-background: #eaedf5;
 	--wx-table-select-focus-background: #ebedf3;
@@ -177,4 +234,23 @@
 .wx-willow-theme .menu {
 	box-shadow: 0px 4px 20px 0px rgba(44, 47, 60, 0.12);
 	outline: 1px solid #e6e6e6;
+}
+
+/* Shared scrollbar */
+.overflow-y-auto::-webkit-scrollbar {
+	width: 4px;
+}
+
+.overflow-y-auto::-webkit-scrollbar-track {
+	background: #f1f5f9;
+	border-radius: 2px;
+}
+
+.overflow-y-auto::-webkit-scrollbar-thumb {
+	background: #cbd5e1;
+	border-radius: 2px;
+}
+
+.overflow-y-auto::-webkit-scrollbar-thumb:hover {
+	background: #cbd5f9;
 }

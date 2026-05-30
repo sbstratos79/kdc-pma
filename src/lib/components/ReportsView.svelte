@@ -12,6 +12,7 @@
 	import { getStatusColor } from '$lib/utils/colorUtils';
 	import { enumsStore, architectsStore } from '$lib/stores';
 	import Chart from 'chart.js/auto';
+	import LoadingSpinner from '$lib/components/LoadingSpinner.svelte';
 
 	// ---------------------------------------------------------------------------
 	// Types (client-side mirror of reports.repo.ts — no server imports on client)
@@ -505,7 +506,7 @@
 					{exporting === 'pdf' ? 'Exporting…' : 'PDF'}
 				</button>
 				<button
-					class="flex items-center gap-1.5 rounded-md bg-blue-600 px-3 py-2 text-sm font-medium text-white shadow-sm transition-colors hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
+					class="btn-primary flex items-center gap-1.5"
 					onclick={loadReports}
 					disabled={loading}
 				>
@@ -674,9 +675,9 @@
 					<div
 						class="overflow-hidden rounded-lg border border-gray-200 bg-white shadow-sm md:col-span-2"
 					>
-						<div class="border-b border-gray-100 p-4">
-							<h3 class="text-sm font-semibold text-gray-800">Status Distribution</h3>
-							<p class="mt-1 text-xs text-gray-500">
+						<div class="report-chart-header">
+							<h3 class="report-chart-title">Status Distribution</h3>
+							<p class="report-chart-subtitle">
 								Projects vs. tasks per status — lighter bars are projects, solid are tasks
 							</p>
 						</div>
@@ -689,9 +690,9 @@
 					<div
 						class="overflow-hidden rounded-lg border border-gray-200 bg-white shadow-sm md:col-span-1"
 					>
-						<div class="border-b border-gray-100 p-4">
-							<h3 class="text-sm font-semibold text-gray-800">Task Priority Mix</h3>
-							<p class="mt-1 text-xs text-gray-500">Distribution of tasks by priority level</p>
+						<div class="report-chart-header">
+							<h3 class="report-chart-title">Task Priority Mix</h3>
+							<p class="report-chart-subtitle">Distribution of tasks by priority level</p>
 						</div>
 						<div class="flex h-64 items-center justify-center p-4">
 							<canvas bind:this={priorityCanvas}></canvas>
@@ -702,13 +703,13 @@
 					<div
 						class="overflow-hidden rounded-lg border border-gray-200 bg-white shadow-sm md:col-span-2"
 					>
-						<div class="border-b border-gray-100 p-4">
-							<h3 class="text-sm font-semibold text-gray-800">
+						<div class="report-chart-header">
+							<h3 class="report-chart-title">
 								Architect Workload <span class="ml-2 text-xs font-normal text-gray-400"
 									>(top 10)</span
 								>
 							</h3>
-							<p class="mt-1 text-xs text-gray-500">Active tasks vs. overdue tasks per architect</p>
+							<p class="report-chart-subtitle">Active tasks vs. overdue tasks per architect</p>
 						</div>
 						<div class="h-80 p-4">
 							<canvas bind:this={workloadCanvas}></canvas>
@@ -779,7 +780,7 @@
 						<p class="font-medium text-yellow-700">No projects match the current filters.</p>
 					</div>
 				{:else}
-					<div class="overflow-x-auto rounded-lg border border-gray-200 bg-white shadow-sm">
+					<div class="report-grid-wrapper">
 						<Grid data={reports.projectSummary} columns={projectColumns} />
 					</div>
 				{/if}
@@ -789,7 +790,7 @@
 						<p class="font-medium text-yellow-700">No architects match the current filters.</p>
 					</div>
 				{:else}
-					<div class="overflow-x-auto rounded-lg border border-gray-200 bg-white shadow-sm">
+					<div class="report-grid-wrapper">
 						<Grid data={reports.architectWorkload} columns={architectColumns} />
 					</div>
 				{/if}
@@ -815,15 +816,13 @@
 						</p>
 					</div>
 				{:else}
-					<div class="overflow-x-auto rounded-lg border border-gray-200 bg-white shadow-sm">
+					<div class="report-grid-wrapper">
 						<Grid data={reports.overdueTasks} columns={overdueColumns} />
 					</div>
 				{/if}
 			{/if}
 		{:else if loading}
-			<div class="flex h-64 items-center justify-center">
-				<div class="h-12 w-12 animate-spin rounded-full border-b-2 border-blue-600"></div>
-			</div>
+			<LoadingSpinner size="sm" />
 		{:else}
 			<div class="text-sm text-gray-400">Loading reports…</div>
 		{/if}

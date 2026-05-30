@@ -8,6 +8,9 @@
 	import { architectsStore, projectsStore, tasksStore } from '$lib/stores';
 	import { SvelteDate } from 'svelte/reactivity';
 	import type { Architect, Project, Task } from '$lib/types';
+	import LoadingSpinner from '$lib/components/LoadingSpinner.svelte';
+	import ErrorState from '$lib/components/ErrorState.svelte';
+	import CarouselArrowIcon from '$lib/components/CarouselArrowIcon.svelte';
 
 	let loading = $state(true);
 	let error: string | null = $state(null);
@@ -121,14 +124,9 @@
 </script>
 
 {#if loading}
-	<div class="flex h-80 items-center justify-center">
-		<div class="h-20 w-20 animate-spin rounded-full border-b-2 border-blue-600"></div>
-	</div>
+	<LoadingSpinner size="lg" />
 {:else if error}
-	<div class="rounded-lg border border-red-200 bg-red-50 p-4 text-red-700">
-		<h2 class="mb-4 font-semibold">Error loading data</h2>
-		<p>{error}</p>
-	</div>
+	<ErrorState message={error} />
 {:else if todaysPendingTasks.length === 0}
 	<!-- nothing to show -->
 {:else}
@@ -224,40 +222,14 @@
 								class="pointer-events-auto rounded-full bg-white p-2 opacity-0 shadow-lg transition-all duration-200 group-hover/carousel:opacity-100 hover:scale-110 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-30"
 								aria-label="Previous task"
 							>
-								<svg
-									xmlns="http://www.w3.org/2000/svg"
-									width="20"
-									height="20"
-									viewBox="0 0 24 24"
-									fill="none"
-									stroke="currentColor"
-									stroke-width="2.5"
-									stroke-linecap="round"
-									stroke-linejoin="round"
-									class="text-gray-700"
-								>
-									<path d="m18 15-6-6-6 6" />
-								</svg>
+								<CarouselArrowIcon direction="up" />
 							</Carousel.PrevTrigger>
 
 							<Carousel.NextTrigger
 								class="pointer-events-auto rounded-full bg-white p-2 opacity-0 shadow-lg transition-all duration-200 group-hover/carousel:opacity-100 hover:scale-110 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-30"
 								aria-label="Next task"
 							>
-								<svg
-									xmlns="http://www.w3.org/2000/svg"
-									width="20"
-									height="20"
-									viewBox="0 0 24 24"
-									fill="none"
-									stroke="currentColor"
-									stroke-width="2.5"
-									stroke-linecap="round"
-									stroke-linejoin="round"
-									class="text-gray-700"
-								>
-									<path d="m6 9 6 6 6-6" />
-								</svg>
+								<CarouselArrowIcon direction="down" />
 							</Carousel.NextTrigger>
 						</Carousel.Control>
 					</div>
@@ -282,13 +254,6 @@
 	.task-card {
 		box-sizing: border-box;
 		max-width: 100%;
-		overflow: hidden;
-	}
-
-	.line-clamp-2 {
-		display: -webkit-box;
-		-webkit-line-clamp: 2;
-		-webkit-box-orient: vertical;
 		overflow: hidden;
 	}
 </style>

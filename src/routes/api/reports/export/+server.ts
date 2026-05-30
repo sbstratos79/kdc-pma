@@ -16,6 +16,10 @@ import {
 	type ArchitectWorkloadRow,
 	type OverdueTaskRow
 } from '$lib/server/db/repos/reports.repo';
+import { PUBLIC_LOGO_FILE_NAME, PUBLIC_PROJECT_TITLE } from '$env/static/public';
+
+const logo = PUBLIC_LOGO_FILE_NAME;
+const title = PUBLIC_PROJECT_TITLE;
 
 function fmt(val: string | number | null | undefined): string {
 	if (val === null || val === undefined) return '—';
@@ -145,7 +149,7 @@ async function buildPDF(reports: AllReports, section: string): Promise<Buffer> {
 	const AMBER = '#d97706';
 	const RED = '#dc2626';
 	const generatedAt = new Date(reports.generatedAt).toLocaleString();
-	const logoPath = path.resolve(process.cwd(), 'static/logo.png');
+	const logoPath = path.resolve(process.cwd(), 'static' + logo);
 
 	// ---- helpers ----
 
@@ -315,7 +319,7 @@ async function buildPDF(reports: AllReports, section: string): Promise<Buffer> {
 		.fillColor('#1f2937')
 		.font('Helvetica-Bold')
 		.fontSize(24)
-		.text('Project Management Report', 50 + (logoExists ? 65 : 0), 38);
+		.text(title ? title : 'Test', 50 + (logoExists ? 65 : 0), 38);
 	doc
 		.fontSize(10)
 		.font('Helvetica')

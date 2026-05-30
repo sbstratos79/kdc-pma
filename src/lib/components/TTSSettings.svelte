@@ -149,7 +149,7 @@
 		<!-- TTS Engine Selection -->
 		<div class="space-y-4 border-t border-gray-200 pt-4">
 			<div>
-				<label class="mb-2 block text-sm font-medium text-gray-700"> TTS Engine </label>
+				<label class="tts-label"> TTS Engine </label>
 				<div class="flex gap-3">
 					<button
 						onclick={() => handleEngineChange('browser')}
@@ -174,7 +174,7 @@
 
 			<!-- Speed Control -->
 			<div>
-				<label class="mb-2 block text-sm font-medium text-gray-700">
+				<label class="tts-label">
 					Speed: {speed.toFixed(1)}x
 				</label>
 				<input
@@ -196,14 +196,12 @@
 			<!-- Voice Selection based on Engine -->
 			{#if engine === 'browser'}
 				<div>
-					<label for="browser-voice" class="mb-2 block text-sm font-medium text-gray-700">
-						Browser Voice
-					</label>
+					<label for="browser-voice" class="tts-label"> Browser Voice </label>
 					<select
 						id="browser-voice"
 						value={selectedBrowserVoice}
 						onchange={handleBrowserVoiceChange}
-						class="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500 focus:outline-none"
+						class="tts-select"
 					>
 						{#if browserVoices.length === 0}
 							<option value="">Loading voices...</option>
@@ -218,14 +216,12 @@
 				</div>
 			{:else if engine === 'server'}
 				<div>
-					<label for="server-voice" class="mb-2 block text-sm font-medium text-gray-700">
-						Server Voice (Edge TTS)
-					</label>
+					<label for="server-voice" class="tts-label"> Server Voice (Edge TTS) </label>
 					<select
 						id="server-voice"
 						value={serverVoice}
 						onchange={handleServerVoiceChange}
-						class="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500 focus:outline-none"
+						class="tts-select"
 					>
 						{#each serverVoices as voice (voice.value)}
 							<option value={voice.value}>

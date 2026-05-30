@@ -319,8 +319,8 @@
 <Willow>
 	<div class="project-container">
 		<div class="header">
-			<h2 class="mb-4 text-2xl font-bold text-gray-800">Projects Management</h2>
-			<div class="controls mb-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-4">
+			<h2 class="table-heading">Projects Management</h2>
+			<div class="table-controls">
 				<Text css="height: 100%;" clear bind:value={searchTerm} onchange={handleFilter} />
 
 				<RichSelect
@@ -343,12 +343,7 @@
 					clear
 					onchange={handleFilter}
 				/>
-				<button
-					class="add-btn shrink-0 self-start rounded-md bg-blue-600 px-3 py-1.5 text-sm font-medium whitespace-nowrap text-white shadow-sm hover:bg-blue-700"
-					onclick={handleAddProject}
-				>
-					+ Add Project
-				</button>
+				<button class="btn-add" onclick={handleAddProject}> + Add Project </button>
 			</div>
 		</div>
 
@@ -357,9 +352,7 @@
 		{:else if error}
 			<div class="error">Error: {error}</div>
 		{:else if !projects || projects.length === 0}
-			<div
-				class="mb-4 rounded-lg border border-yellow-200 bg-yellow-50 p-4 text-center text-2xl font-bold text-yellow-700"
-			>
+			<div class="empty-state-box">
 				<p>No projects added.</p>
 			</div>
 		{:else}
