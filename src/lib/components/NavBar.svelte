@@ -50,10 +50,15 @@
 	<NavBrand href="/">
 		<span class="px-2">
 			{#if logo}
-				<img src={logo} width="52" alt="KDC Logo" />
+				<img
+					src={logo}
+					class="h-8 w-8 object-contain sm:h-10 sm:w-10 md:h-13 md:w-13"
+					alt="KDC Logo"
+				/>
 			{/if}
 		</span>
-		<span class="self-center text-2xl font-semibold whitespace-nowrap dark:text-white"
+		<span
+			class="self-center truncate text-sm font-semibold whitespace-nowrap sm:text-base md:text-lg lg:text-2xl dark:text-white"
 			>{title || 'Project Dashboard'}</span
 		>
 	</NavBrand>
@@ -79,7 +84,7 @@
 				<div class="relative">
 					<button
 						onclick={toggleLogin}
-						class="rounded-md bg-blue-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-blue-700"
+						class="w-full rounded-md bg-blue-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-blue-700 md:w-auto"
 					>
 						Login
 					</button>
@@ -93,7 +98,7 @@
 							onkeydown={() => {}}
 						></div>
 						<div
-							class="absolute top-full right-0 z-50 mt-1 w-64 rounded-lg border border-gray-200 bg-white p-4 shadow-lg"
+							class="absolute top-full right-0 left-0 z-50 mx-auto mt-1 w-64 max-w-[90vw] rounded-lg border border-gray-200 bg-white p-4 shadow-lg md:left-auto md:mx-0"
 							role="presentation"
 							onclick={(e) => e.stopPropagation()}
 							onkeydown={() => {}}
