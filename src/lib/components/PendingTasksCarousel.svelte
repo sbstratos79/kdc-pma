@@ -139,7 +139,7 @@
 		loop
 		allowMouseDrag
 		spacing="4px"
-		class="carousel-root group/carousel"
+		class="carousel-root group/card"
 		padding="40px"
 		{slidesPerPage}
 	>
@@ -214,16 +214,18 @@
 				</Carousel.ItemGroup>
 			{/snippet}
 		</Carousel.Context>
-		<!-- Navigation Controls - Show on Hover -->
-		<Carousel.Control class="carousel-control">
-			<Carousel.PrevTrigger class="carousel-trigger left-2">
-				<CarouselArrowIcon direction="left" />
-			</Carousel.PrevTrigger>
+		{#if todaysPendingTasks.length > 1}
+			<!-- Navigation Controls - Show on Hover -->
+			<Carousel.Control class="carousel-control">
+				<Carousel.PrevTrigger class="carousel-trigger left-2">
+					<CarouselArrowIcon direction="left" />
+				</Carousel.PrevTrigger>
 
-			<Carousel.NextTrigger class="carousel-trigger right-2">
-				<CarouselArrowIcon direction="right" />
-			</Carousel.NextTrigger>
-		</Carousel.Control>
+				<Carousel.NextTrigger class="carousel-trigger right-2">
+					<CarouselArrowIcon direction="right" />
+				</Carousel.NextTrigger>
+			</Carousel.Control>
+		{/if}
 	</Carousel.Root>
 {/if}
 

@@ -3,7 +3,7 @@
 </script>
 
 <div
-	class="rounded-lg border border-yellow-200 bg-yellow-50 p-4 text-center text-2xl font-bold text-yellow-700"
+	class="mb-4 rounded-lg border border-yellow-200 bg-yellow-50 p-4 text-center text-2xl font-bold text-yellow-700"
 >
 	<p>{message}</p>
 </div>

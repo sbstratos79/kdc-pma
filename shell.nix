@@ -2,13 +2,6 @@ let
   pkgs = import <nixpkgs> { };
   python = pkgs.python313;
   pythonPackages = python.pkgs;
-  lib-path =
-    with pkgs;
-    lib.makeLibraryPath [
-      libffi
-      openssl
-      stdenv.cc.cc
-    ];
 in
 with pkgs;
 mkShell {
@@ -21,11 +14,11 @@ mkShell {
     readline
     libffi
     git
+    stdenv.cc.cc
   ];
 
   shellHook = ''
     SOURCE_DATE_EPOCH=$(date +%s)
-    export "LD_LIBRARY_PATH=$LD_LIBRARY_PATH:${lib-path}"
     VENV=.venv
 
     if test ! -d $VENV; then

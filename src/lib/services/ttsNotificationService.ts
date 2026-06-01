@@ -297,7 +297,7 @@ class TTSNotificationService {
 		await this.playAnnouncement({
 			taskId: 'test',
 			taskName: 'Test Task',
-			taskDescription: null,
+			taskDescription: 'Test Task Description',
 			architectId: 'test-arch',
 			architectName: 'John Doe',
 			projectName: 'Test Project'
