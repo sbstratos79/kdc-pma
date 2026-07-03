@@ -525,7 +525,7 @@
 																	>
 																		{#if project.projectStatus}
 																			<span
-																				class="shrink-0 rounded-full border px-2.5 py-0.5 text-sm font-bold whitespace-nowrap lg:text-lg {getStatusColor(
+																				class="mb-2 shrink-0 rounded-full border px-2.5 py-0.5 text-sm font-bold whitespace-nowrap lg:text-lg {getStatusColor(
 																					project.projectStatus
 																				)}"
 																			>
@@ -534,12 +534,12 @@
 																		{/if}
 																	</div>
 
-																	<div
-																		class="mb-2 flex items-center justify-between gap-2 text-lg font-medium text-gray-900 lg:text-xl"
-																	>
-																		<span>Start: {formatDate(project.projectStartDate)}</span>
-																		<span>Due: {formatDate(project.projectDueDate)}</span>
-																	</div>
+																	<!-- <div
+																		   class="mb-2 flex items-center justify-between gap-2 text-lg font-medium text-gray-900 lg:text-xl"
+																	     >
+																		   <span>Start: {formatDate(project.projectStartDate)}</span>
+																		   <span>Due: {formatDate(project.projectDueDate)}</span>
+																	     </div> -->
 																</div>
 
 																{#if project.projectDescription}
