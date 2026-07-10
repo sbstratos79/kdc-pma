@@ -32,6 +32,17 @@ export const GET: RequestHandler = async () => {
 
 			ttsQueueManager.on('announcement', handleAnnouncement);
 
+			// eslint-disable-next-line @typescript-eslint/no-explicit-any
+			const handleCustomAnnouncement = (data: any) => {
+				const message = `data: ${JSON.stringify({
+					type: 'custom-announcement',
+					data
+				})}\n\n`;
+				safeEnqueue(encoder.encode(message));
+			};
+
+			ttsQueueManager.on('custom-announcement', handleCustomAnnouncement);
+
 			// Send keep-alive every 30 seconds
 			const keepAliveInterval = setInterval(() => {
 				safeEnqueue(encoder.encode(': keep-alive\n\n'));
@@ -40,6 +51,7 @@ export const GET: RequestHandler = async () => {
 			const cleanup = () => {
 				isClosed = true;
 				ttsQueueManager.off('announcement', handleAnnouncement);
+				ttsQueueManager.off('custom-announcement', handleCustomAnnouncement);
 				clearInterval(keepAliveInterval);
 				console.log('[TTS SSE] Client disconnected');
 			};

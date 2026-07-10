@@ -5,10 +5,14 @@
 		type ServerTTSVoice
 	} from '$lib/services/ttsNotificationService';
 
+	let { authenticated = false } = $props();
+
 	let ttsEnabled = $state(true);
 	let ttsAvailable = $state(false);
 	let engine = $state<'browser' | 'server'>('browser');
 	let speed = $state(1.0);
+	let announcementText = $state('');
+	let isSpeaking = $state(false);
 
 	// Browser TTS
 	let browserVoices = $state<SpeechSynthesisVoice[]>([]);
@@ -101,6 +105,20 @@
 
 	async function testTTS() {
 		await ttsNotificationService.test();
+	}
+
+	async function sendAnnouncement() {
+		if (!announcementText.trim()) return;
+		isSpeaking = true;
+		try {
+			await fetch('/api/tts/announce', {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ text: announcementText.trim() })
+			});
+		} finally {
+			isSpeaking = false;
+		}
 	}
 </script>
 
@@ -235,6 +253,29 @@
 				</div>
 			{/if}
 		</div>
+
+		<!-- Manual Announcement -->
+		{#if authenticated}
+			<div class="space-y-4 border-t border-gray-200 pt-4">
+				<div>
+					<label for="announcement-text" class="tts-label"> Manual Announcement </label>
+					<textarea
+						id="announcement-text"
+						bind:value={announcementText}
+						placeholder="Type an announcement to speak aloud..."
+						rows="6"
+						class="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500 focus:outline-none"
+					></textarea>
+				</div>
+				<button
+					onclick={sendAnnouncement}
+					disabled={!announcementText.trim() || isSpeaking}
+					class="rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
+				>
+					{isSpeaking ? 'Speaking...' : 'Send Announcement'}
+				</button>
+			</div>
+		{/if}
 	{/if}
 </div>
 

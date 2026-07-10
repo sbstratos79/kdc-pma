@@ -72,7 +72,7 @@
 				<NavLi href="/architects-editor">Architects Editor</NavLi>
 			{/if}
 			<NavLi href="/reports">Reports</NavLi>
-			<NavLi href="/tts-settings">TTS Settings</NavLi>
+			<NavLi href="/tts">TTS</NavLi>
 			{#if authenticated}
 				<button
 					onclick={handleLogout}

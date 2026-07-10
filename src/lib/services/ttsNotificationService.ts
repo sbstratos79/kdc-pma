@@ -85,6 +85,9 @@ class TTSNotificationService {
 					} else if (message.type === 'announcement') {
 						console.log('[TTS Client] Received announcement:', message.data);
 						this.queueAnnouncement(message.data);
+					} else if (message.type === 'custom-announcement') {
+						console.log('[TTS Client] Received custom announcement:', message.data);
+						this.speakCustomText(message.data.text);
 					}
 				} catch (err) {
 					console.error('[TTS Client] Error parsing SSE message:', err);
@@ -291,6 +294,27 @@ class TTSNotificationService {
 	getBrowserVoices(): SpeechSynthesisVoice[] {
 		if (!this.synth) return [];
 		return this.synth.getVoices().filter((v) => v.lang.startsWith('en'));
+	}
+
+	async speakText(text: string) {
+		if (this.settings.engine === 'server') {
+			await this.announceWithServerTTS(text);
+		} else {
+			await this.announceWithBrowser(text);
+		}
+	}
+
+	private speakCustomText(text: string) {
+		if (!this.settings.enabled) {
+			console.log('[TTS Client] Announcements disabled, skipping custom');
+			return;
+		}
+
+		if (this.settings.engine === 'server') {
+			this.announceWithServerTTS(text);
+		} else {
+			this.announceWithBrowser(text);
+		}
 	}
 
 	async test() {

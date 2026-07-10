@@ -117,6 +117,11 @@ class TTSQueueManager extends EventEmitter {
 		this.queue.clear();
 		console.log('[TTS Queue] Queue reset');
 	}
+
+	broadcastCustomAnnouncement(text: string) {
+		console.log('[TTS Queue] Broadcasting custom announcement:', text);
+		this.emit('custom-announcement', { text });
+	}
 }
 
 export const ttsQueueManager = new TTSQueueManager();
