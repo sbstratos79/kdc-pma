@@ -4,7 +4,7 @@
 	import { getPriorityGradient, getStatusColor, getStatusBarColor } from '$lib/utils/colorUtils';
 
 	// same stores and pattern used in other components
-	import { architectsStore, projectsStore, tasksStore } from '$lib/stores';
+	import { architectsStore, projectsStore, tasksStore, viewportStore } from '$lib/stores';
 	import { SvelteDate } from 'svelte/reactivity';
 	import type { Architect, Project, Task } from '$lib/types';
 	import LoadingSpinner from '$lib/components/LoadingSpinner.svelte';
@@ -54,6 +54,15 @@
 		return unsub;
 	});
 
+	let viewport = $state({
+		width: 1920,
+		height: 1080,
+		scale: 1,
+		layoutWidth: 1920,
+		layoutHeight: 1080
+	});
+	$effect(() => viewportStore.subscribe((s) => (viewport = s)));
+
 	// Derived: today's pending tasks (due today and not Completed/Cancelled)
 	let todaysPendingTasks = $derived.by(() => {
 		const tasks = tasksState.list || [];
@@ -79,21 +88,10 @@
 	// Mobile: 280px, Tablet: 380px, Desktop: 480px
 
 	// Reactive state for slides per page based on screen size
-	let slidesPerPage = $state(1);
+	let slidesPerPage = $derived(Math.max(1, viewport.layoutWidth / 360));
 
 	onMount(() => {
 		loading = true;
-
-		const updateSlidesPerPage = () => {
-			const width = window.innerWidth;
-			slidesPerPage = width / 360;
-		};
-
-		// Set initial value
-		updateSlidesPerPage();
-
-		// Update on resize
-		window.addEventListener('resize', updateSlidesPerPage);
 
 		// Refresh data when window regains focus
 		const handleFocus = async () => {
@@ -120,7 +118,6 @@
 
 		return () => {
 			window.removeEventListener('focus', handleFocus);
-			window.removeEventListener('resize', updateSlidesPerPage);
 		};
 	});
 </script>

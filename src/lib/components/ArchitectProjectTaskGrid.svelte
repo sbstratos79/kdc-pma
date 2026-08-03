@@ -3,7 +3,7 @@
 	import { Collapsible } from '@ark-ui/svelte/collapsible';
 	import { Carousel } from '@ark-ui/svelte/carousel';
 	import { SvelteMap } from 'svelte/reactivity';
-	import { architectsStore, projectsStore, tasksStore } from '$lib/stores';
+	import { architectsStore, projectsStore, tasksStore, viewportStore } from '$lib/stores';
 	import {
 		getPriorityColor,
 		getPriorityGradient,
@@ -61,6 +61,15 @@
 		return unsubTasks;
 	});
 
+	let viewport = $state({
+		width: 1920,
+		height: 1080,
+		scale: 1,
+		layoutWidth: 1920,
+		layoutHeight: 1080
+	});
+	$effect(() => viewportStore.subscribe((s) => (viewport = s)));
+
 	// Build hierarchical data structure
 	let architectProjectData = $derived.by(() => {
 		const architects = architectsState.list;
@@ -71,7 +80,11 @@
 				project.projectStatus !== 'Cancelled' && project.projectStatus !== 'Completed'
 		);
 
-		const tasks: Task[] = tasksState.list;
+		const tasks: Task[] = tasksState.list.filter(
+			(t: Task) =>
+				(t.taskStatus ?? '').toLowerCase() !== 'completed' &&
+				(t.taskStatus ?? '').toLowerCase() !== 'cancelled'
+		);
 
 		// Group tasks by project
 		const tasksByProject = new SvelteMap<string, typeof tasks>();
@@ -139,17 +152,17 @@
 	// responsive outer carousel styling
 
 	// Mobile: 280px, Tablet: 380px, Desktop: 480px
-	const getSlideWidth = () => {
-		if (typeof window === 'undefined') return 280;
-		if (window.innerWidth < 640) return 280; // mobile (sm breakpoint)
-		if (window.innerWidth < 1024) return 380; // tablet
+	const SLIDE_MAX_WIDTH_PX = 360;
+
+	const getSlideWidth = (w: number) => {
+		if (w < 640) return 280; // mobile (sm breakpoint)
+		if (w < 1024) return 380; // tablet
 		return 480; // desktop
 	};
 
-	let slideWidth = $state(getSlideWidth());
-	const SLIDE_MAX_WIDTH_PX = 360;
+	let slideWidth = $derived(Math.min(getSlideWidth(viewport.layoutWidth), SLIDE_MAX_WIDTH_PX));
 
-	let baseSlidesPerPage = $state(1);
+	let baseSlidesPerPage = $derived(Math.max(1, Math.floor(viewport.layoutWidth / slideWidth)));
 
 	let slidesPerPage = $derived(Math.min(baseSlidesPerPage, visibleArchitects.length || 1));
 
@@ -377,19 +390,6 @@
 	onMount(() => {
 		loading = true;
 
-		const updateSlidesPerPage = () => {
-			if (typeof window === 'undefined') return;
-			const width = window.innerWidth;
-			slideWidth = Math.min(getSlideWidth(), SLIDE_MAX_WIDTH_PX);
-			baseSlidesPerPage = Math.max(1, Math.floor(width / slideWidth));
-		};
-
-		// Set initial value
-		updateSlidesPerPage();
-
-		// Update on resize
-		window.addEventListener('resize', updateSlidesPerPage);
-
 		// Refresh data when window regains focus
 		const handleFocus = async () => {
 			await Promise.all([architectsStore.refresh(), projectsStore.refresh(), tasksStore.refresh()]);
@@ -429,7 +429,6 @@
 		})();
 
 		return () => {
-			window.removeEventListener('resize', updateSlidesPerPage);
 			window.removeEventListener('focus', handleFocus);
 			stopAutoplay();
 		};

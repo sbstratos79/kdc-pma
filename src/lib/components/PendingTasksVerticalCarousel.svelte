@@ -5,7 +5,7 @@
 	import { Carousel } from '@ark-ui/svelte/carousel';
 	import { getPriorityGradient, getStatusBarColor } from '$lib/utils/colorUtils';
 
-	import { architectsStore, projectsStore, tasksStore } from '$lib/stores';
+	import { architectsStore, projectsStore, tasksStore, viewportStore } from '$lib/stores';
 	import { SvelteDate } from 'svelte/reactivity';
 	import type { Architect, Project, Task } from '$lib/types';
 	import LoadingSpinner from '$lib/components/LoadingSpinner.svelte';
@@ -38,6 +38,15 @@
 	$effect(() => projectsStore.subscribe((s) => (projectsState = s)));
 	$effect(() => tasksStore.subscribe((s) => (tasksState = s)));
 
+	let viewport = $state({
+		width: 1920,
+		height: 1080,
+		scale: 1,
+		layoutWidth: 1920,
+		layoutHeight: 1080
+	});
+	$effect(() => viewportStore.subscribe((s) => (viewport = s)));
+
 	let todaysPendingTasks: Task[] = $derived.by(() => {
 		const tasks: Task[] = tasksState.list || [];
 		const today = new SvelteDate();
@@ -57,41 +66,31 @@
 		});
 	});
 
-	const SLIDE_HEIGHT_PX = 150;
 	const SLIDE_MAX_HEIGHT_PX = 220;
 	const CAROUSEL_SPACING_PX = 8;
 
-	const getSlideHeight = () => {
-		if (typeof window === 'undefined') return SLIDE_HEIGHT_PX;
-		if (window.innerHeight < 640) return 130;
-		if (window.innerHeight < 1024) return 150;
-		if (window.innerHeight < 1440) return 170;
+	const getSlideHeight = (h: number) => {
+		if (h < 640) return 130;
+		if (h < 1024) return 150;
+		if (h < 1440) return 170;
 		return 200;
 	};
 
-	let slideHeight = $state(getSlideHeight());
-	let baseSlidesPerPage = $state(1);
+	let slideHeight = $derived(Math.min(getSlideHeight(viewport.layoutHeight), SLIDE_MAX_HEIGHT_PX));
+
+	let baseSlidesPerPage = $derived.by(() => {
+		const availableHeight = viewport.layoutHeight - viewport.layoutHeight * 0.3;
+		return Math.max(
+			1,
+			Math.floor((availableHeight + CAROUSEL_SPACING_PX) / (slideHeight + CAROUSEL_SPACING_PX))
+		);
+	});
 	let slidesPerPage = $derived(Math.min(baseSlidesPerPage, todaysPendingTasks.length || 1));
 
 	onMount(() => {
 		loading = true;
 
-		const updateSlidesPerPage = () => {
-			if (typeof window === 'undefined') return;
-			const height = window.innerHeight;
-			slideHeight = Math.min(getSlideHeight(), SLIDE_MAX_HEIGHT_PX);
-
-			const availableHeight = height - height * 0.3;
-			const maxSlides = Math.floor(
-				(availableHeight + CAROUSEL_SPACING_PX) / (slideHeight + CAROUSEL_SPACING_PX)
-			);
-
-			baseSlidesPerPage = Math.max(1, maxSlides);
-		};
-
-		updateSlidesPerPage();
-		window.addEventListener('resize', updateSlidesPerPage);
-
+		// Refresh data when window regains focus
 		const handleFocus = async () => {
 			await Promise.all([architectsStore.refresh(), projectsStore.refresh(), tasksStore.refresh()]);
 			tasksStore.loadWithNames(architectsState.byId, projectsState.byId);
@@ -111,7 +110,6 @@
 		})();
 
 		return () => {
-			window.removeEventListener('resize', updateSlidesPerPage);
 			window.removeEventListener('focus', handleFocus);
 		};
 	});
@@ -127,7 +125,7 @@
 	<div
 		class="carousel-container w-full"
 		style="height: {slideHeight * slidesPerPage +
-			CAROUSEL_SPACING_PX * (slidesPerPage - 1)}px; max-height: calc(100vh - 200px);"
+			CAROUSEL_SPACING_PX * (slidesPerPage - 1)}px; max-height: calc(100% - 200px);"
 	>
 		<Carousel.Root
 			orientation="vertical"
