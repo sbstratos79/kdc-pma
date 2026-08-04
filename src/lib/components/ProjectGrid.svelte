@@ -105,7 +105,7 @@
 	// Slide width scaled up by ~50% from previous defaults.
 	// Responsive: smaller on mobile, larger on desktop
 	// Mobile: 280px, Tablet: 380px, Desktop: 480px
-	const SLIDE_MAX_WIDTH_PX = 360;
+	const SLIDE_MAX_WIDTH_PX = 400;
 
 	const getSlideWidth = (w: number) => {
 		if (w < 640) return 280; // mobile (sm breakpoint)
@@ -120,7 +120,7 @@
 	// --- Autoplay delay based on tasks in currently visible project slides ---
 
 	const BASE_AUTOPLAY_DELAY = 1000; // ms
-	const PER_TASK_DELAY = 3000; // ms per task on visible slides
+	const PER_TASK_DELAY = 5000; // ms per task on visible slides
 	const MIN_AUTOPLAY_DELAY = 1000;
 	const MAX_AUTOPLAY_DELAY = 999999;
 
@@ -292,7 +292,7 @@
 {:else if projectsWithTasks.length === 0}
 	<EmptyState message="No projects found." />
 {:else}
-	<div class="carousel-root group/carousel relative max-w-full overflow-hidden pb-14">
+	<div class="carousel-root group/carousel relative h-full max-w-full overflow-hidden pb-14">
 		<div
 			bind:this={containerRef}
 			onscroll={onCarouselScroll}
@@ -313,7 +313,7 @@
 							class="group/card h-full w-full shrink-0 rounded-xl border border-gray-200"
 						>
 							<Collapsible.Trigger
-								class="flex h-10 w-full min-w-0 flex-1 flex-row items-center justify-between gap-2 rounded-t-lg bg-amber-200 bg-linear-to-r from-rose-50 to-indigo-100 px-4 text-slate-800"
+								class="flex h-11 w-full min-w-0 flex-1 flex-row items-center justify-between gap-2 rounded-t-lg bg-amber-200 bg-linear-to-r from-rose-50 to-indigo-100 px-4 text-slate-800"
 							>
 								<div class="flex flex-row items-center justify-start gap-2 truncate">
 									<div
@@ -338,7 +338,7 @@
 											<div class="flex min-w-0 flex-1 items-center gap-2 overflow-hidden">
 												{#if project.projectStatus}
 													<span
-														class="shrink-0 rounded-full border px-2.5 py-0.5 text-sm font-bold whitespace-nowrap lg:text-lg {getStatusColor(
+														class="shrink-0 rounded-full border px-3 py-1 text-sm font-bold whitespace-nowrap lg:text-xl {getStatusColor(
 															project.projectStatus
 														)}"
 													>
@@ -356,7 +356,7 @@
 										</div>
 
 										{#if project.projectDescription}
-											<p class="text-md mt-2 text-gray-600 lg:text-lg">
+											<p class="text-md mt-2 text-gray-600 lg:text-xl">
 												{project.projectDescription}
 											</p>
 										{/if}
@@ -386,7 +386,7 @@
 																<!-- make each inner-item occupy full width of its carousel viewport -->
 																<Carousel.Item index={tIndex} class="w-full flex-none">
 																	<div
-																		class="flex h-full min-h-25 w-full overflow-hidden rounded-2xl border border-neutral-600/20 bg-linear-to-br duration-200 {getPriorityGradient(
+																		class="flex h-full min-h-28 w-full overflow-hidden rounded-2xl border border-neutral-600/20 bg-linear-to-br duration-200 {getPriorityGradient(
 																			task.taskPriority
 																		)}"
 																	>
@@ -403,7 +403,7 @@
 																		>
 																			<div class="min-w-0 flex-1">
 																				<p
-																					class="text-md min-w-0 flex-1 items-center truncate font-bold text-gray-900 md:text-lg xl:text-xl"
+																					class="text-md min-w-0 flex-1 items-center font-bold text-gray-900 lg:text-xl"
 																				>
 																					{task.taskName}
 																				</p>
@@ -411,14 +411,14 @@
 
 																			{#if task.taskDescription}
 																				<p
-																					class="lg:text-md mx-1 line-clamp-3 text-sm text-gray-600 xl:text-base"
+																					class="lg:text-md mx-1 line-clamp-3 text-sm text-gray-600 lg:text-base"
 																				>
 																					{task.taskDescription}
 																				</p>
 																			{/if}
 
 																			<div
-																				class="text-md mt-1 flex items-center justify-between gap-2 text-gray-800 lg:text-lg"
+																				class="text-md mt-1 flex items-center justify-between gap-2 text-gray-800 lg:text-xl"
 																			>
 																				<span>Start: {formatDate(task.taskStartDate)}</span>
 																				<span>Due: {formatDate(task.taskDueDate)}</span>

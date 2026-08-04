@@ -131,7 +131,7 @@
 			orientation="vertical"
 			defaultPage={0}
 			slideCount={todaysPendingTasks.length}
-			autoplay={{ delay: 5000 }}
+			autoplay={{ delay: 7000 }}
 			loop
 			allowMouseDrag
 			spacing="{CAROUSEL_SPACING_PX}px"

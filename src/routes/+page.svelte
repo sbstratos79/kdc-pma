@@ -43,8 +43,12 @@
 			<PendingTasksCarousel />
 		</div>
 		<div class="flex min-w-0 flex-1 flex-col gap-2 lg:h-full lg:gap-6 lg:overflow-y-auto">
-			<ProjectGrid />
-			<ArchitectProjectTaskGrid />
+			<div class="min-h-0 flex-[3] overflow-hidden">
+				<ProjectGrid />
+			</div>
+			<div class="min-h-0 flex-[2] overflow-hidden">
+				<ArchitectProjectTaskGrid />
+			</div>
 			<FooterLegend />
 		</div>
 	</div>

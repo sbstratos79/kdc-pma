@@ -152,7 +152,7 @@
 	// responsive outer carousel styling
 
 	// Mobile: 280px, Tablet: 380px, Desktop: 480px
-	const SLIDE_MAX_WIDTH_PX = 360;
+	const SLIDE_MAX_WIDTH_PX = 320;
 
 	const getSlideWidth = (w: number) => {
 		if (w < 640) return 280; // mobile (sm breakpoint)
@@ -170,7 +170,7 @@
 
 	// Inner (project) carousels – per architect
 	const INNER_BASE_DELAY = 1000; // ms
-	const INNER_PER_TASK_DELAY = 3000; // ms per task
+	const INNER_PER_TASK_DELAY = 5000; // ms per task
 	const INNER_MIN_DELAY = 1000;
 	const INNER_MAX_DELAY = 999999;
 
@@ -321,6 +321,12 @@
 		const pauseOnHover = options.pauseOnHover ?? true;
 		const EDGE_EPSILON = 1; // px tolerance so we don't rely on exact equality
 
+		// Add padding-bottom equal to last child height so scroll reaches full bottom
+		const lastChild = node.lastElementChild;
+		if (lastChild) {
+			node.style.paddingBottom = `${lastChild.offsetHeight}px`;
+		}
+
 		const handleEnter = () => {
 			if (pauseOnHover) isHovered = true;
 		};
@@ -376,6 +382,7 @@
 		return {
 			destroy() {
 				if (frameId !== null) cancelAnimationFrame(frameId);
+				node.style.paddingBottom = '';
 				if (pauseOnHover) {
 					node.removeEventListener('pointerenter', handleEnter);
 					node.removeEventListener('pointerleave', handleLeave);
@@ -442,7 +449,7 @@
 {:else if visibleArchitects.length === 0}
 	<EmptyState message="No architects found." />
 {:else}
-	<div class="carousel-root group/carousel relative max-w-full pb-14">
+	<div class="carousel-root group/carousel relative h-full max-w-full pb-14">
 		<div
 			bind:this={containerRef}
 			onscroll={onCarouselScroll}
@@ -463,17 +470,17 @@
 						class="group/card w-shrink-0 rounded-xl border border-gray-200"
 					>
 						<Collapsible.Trigger
-							class="flex h-10 w-full min-w-0 flex-1 flex-row items-center justify-between gap-2 truncate rounded-t-lg bg-amber-200 bg-linear-to-r from-rose-50 to-indigo-100 px-4 text-2xl font-black text-slate-800"
+							class="flex h-9 w-full min-w-0 flex-1 flex-row items-center justify-between gap-2 truncate rounded-t-lg bg-amber-200 bg-linear-to-r from-rose-50 to-indigo-100 px-4 text-base font-black text-slate-800"
 						>
 							<h2 class="truncate">
 								{architect.architectName || 'Unassigned projects'}
 							</h2>
-							<p class="text-center text-2xl font-bold text-nowrap text-slate-800">
+							<p class="text-center text-sm font-bold text-nowrap text-slate-800">
 								{architect.projects.length} project{architect.projects.length !== 1 ? 's' : ''}
 							</p>
 						</Collapsible.Trigger>
 
-						<Collapsible.Content class="m-2">
+						<Collapsible.Content class="m-1.5">
 							<!-- INNER CAROUSEL: projects for this architect -->
 							<div class="relative flex flex-1 flex-col">
 								<Carousel.Root
@@ -486,7 +493,7 @@
 									}}
 									loop
 									allowMouseDrag
-									spacing="10px"
+									spacing="8px"
 									class="carousel-root"
 								>
 									<Carousel.Context>
@@ -507,12 +514,12 @@
 																		class="justify-left mb-3 flex w-full flex-row items-center gap-2"
 																	>
 																		<div
-																			class="min-h-4 min-w-4 shrink-0 rounded-full {getPriorityColor(
+																			class="min-h-3 min-w-3 shrink-0 rounded-full {getPriorityColor(
 																				project.projectPriority
 																			)}"
 																		></div>
 																		<h3
-																			class="truncate text-xl font-semibold text-gray-900 lg:text-2xl"
+																			class="truncate text-base font-semibold text-gray-900 lg:text-lg"
 																		>
 																			{project.projectName}
 																		</h3>
@@ -524,7 +531,7 @@
 																	>
 																		{#if project.projectStatus}
 																			<span
-																				class="mb-2 shrink-0 rounded-full border px-2.5 py-0.5 text-sm font-bold whitespace-nowrap lg:text-lg {getStatusColor(
+																				class="mb-2 shrink-0 rounded-full border px-2.5 py-0.5 text-xs font-bold whitespace-nowrap lg:text-base {getStatusColor(
 																					project.projectStatus
 																				)}"
 																			>
@@ -542,7 +549,7 @@
 																</div>
 
 																{#if project.projectDescription}
-																	<p class="text-md mb-2 line-clamp-3 text-gray-600 lg:text-xl">
+																	<p class="mb-1 line-clamp-3 text-xs text-gray-600 lg:text-sm">
 																		{project.projectDescription}
 																	</p>
 																{/if}
@@ -552,14 +559,14 @@
 															{#if project.tasks && project.tasks.length > 0}
 																<div
 																	use:autoScrollY={{ speed: 75, pauseOnHover: true }}
-																	class="flex max-h-96 flex-col space-y-1 overflow-y-auto border-t border-gray-200 pr-0.5"
+																	class="flex max-h-60 flex-col space-y-1 overflow-y-auto border-t border-gray-200 pr-0.5"
 																>
-																	<h4 class="mt-1 shrink-0 text-2xl font-bold text-gray-900">
+																	<h4 class="mt-1 shrink-0 text-sm font-bold text-gray-900">
 																		Tasks ({project.tasks.length})
 																	</h4>
 																	{#each project.tasks as task (task.taskId)}
 																		<div
-																			class="flex min-h-fit w-full rounded-2xl border border-neutral-600/20 bg-linear-to-br duration-200 {getPriorityGradient(
+																			class="flex min-h-fit w-full rounded-xl border border-neutral-600/20 bg-linear-to-br duration-200 {getPriorityGradient(
 																				task.taskPriority
 																			)}"
 																		>
@@ -571,17 +578,15 @@
 																				></div>
 																				<div class="w-2.5 shrink-0"></div>
 																			{/if}
-																			<div class="flex min-w-0 flex-col px-3 py-2 md:py-3">
+																			<div class="flex min-w-0 flex-col px-3 py-1">
 																				<div class="min-w-0">
-																					<p
-																						class="text-md font-bold text-gray-900 lg:text-lg xl:text-xl"
-																					>
+																					<p class="text-sm font-bold text-gray-900 lg:text-base">
 																						{task.taskName}
 																					</p>
 																				</div>
 																				{#if task.taskDescription}
 																					<p
-																						class="lg:text-md mx-1 mb-1 text-sm text-gray-600 xl:text-base"
+																						class="lg:text-md mx-1 mb-1 text-xs text-gray-600 lg:text-sm"
 																					>
 																						{task.taskDescription}
 																					</p>
