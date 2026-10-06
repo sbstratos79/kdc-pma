@@ -15,23 +15,31 @@
 	let loading = $state(true);
 	let error: string | null = $state(null);
 
-	let architectsState = $state({
-		list: [] as Architect[],
+	// Mirrors the store state shapes (`error` is optional there, so it must be optional here too)
+	type CarouselEntityState<T> = {
+		list: T[];
+		loading: boolean;
+		error?: string | null;
+		byId: Record<string, T>;
+	};
+
+	let architectsState = $state<CarouselEntityState<Architect>>({
+		list: [],
 		loading: true,
-		error: null as string | null,
-		byId: {} as Record<string, Architect>
+		error: null,
+		byId: {}
 	});
-	let projectsState = $state({
-		list: [] as Project[],
+	let projectsState = $state<CarouselEntityState<Project>>({
+		list: [],
 		loading: true,
-		error: null as string | null,
-		byId: {} as Record<string, Project>
+		error: null,
+		byId: {}
 	});
-	let tasksState = $state({
-		list: [] as Task[],
+	let tasksState = $state<CarouselEntityState<Task>>({
+		list: [],
 		loading: true,
-		error: null as string | null,
-		byId: {} as Record<string, Task>
+		error: null,
+		byId: {}
 	});
 
 	$effect(() => architectsStore.subscribe((s) => (architectsState = s)));
@@ -69,14 +77,23 @@
 	const SLIDE_MAX_HEIGHT_PX = 220;
 	const CAROUSEL_SPACING_PX = 8;
 
-	const getSlideHeight = (h: number) => {
-		if (h < 640) return 130;
-		if (h < 1024) return 150;
-		if (h < 1440) return 170;
-		return 200;
+	// Font sizes are driven by viewport WIDTH (lg/xl breakpoints) while the slide height is driven
+	// by viewport HEIGHT, so the slide must also be tall enough for the text of the active width
+	// breakpoint — otherwise a short viewport with `xl` text clips the card content.
+	// Footer height + padding + 2 title lines were measured at 179px for the `xl` sizes
+	// (at 1280x600 with a 170px slide the footer overflowed the card by 9px), hence the floors.
+	const MIN_SLIDE_HEIGHT_XL_PX = 185; // text-3xl title, text-lg footer (width >= 1280)
+	const MIN_SLIDE_HEIGHT_LG_PX = 150; // text-2xl title, text-base footer (width >= 1024)
+
+	const getSlideHeight = (h: number, w: number) => {
+		const byHeight = h < 640 ? 170 : h < 1024 ? 195 : h < 1440 ? 205 : 220;
+		const byWidth = w >= 1280 ? MIN_SLIDE_HEIGHT_XL_PX : MIN_SLIDE_HEIGHT_LG_PX;
+		return Math.max(byHeight, byWidth);
 	};
 
-	let slideHeight = $derived(Math.min(getSlideHeight(viewport.layoutHeight), SLIDE_MAX_HEIGHT_PX));
+	let slideHeight = $derived(
+		Math.min(getSlideHeight(viewport.layoutHeight, viewport.layoutWidth), SLIDE_MAX_HEIGHT_PX)
+	);
 
 	let baseSlidesPerPage = $derived.by(() => {
 		const availableHeight = viewport.layoutHeight - viewport.layoutHeight * 0.3;
@@ -125,7 +142,7 @@
 	<div
 		class="carousel-container w-full"
 		style="height: {slideHeight * slidesPerPage +
-			CAROUSEL_SPACING_PX * (slidesPerPage - 1)}px; max-height: calc(100% - 200px);"
+			CAROUSEL_SPACING_PX * (slidesPerPage - 1)}px; --slide-h: {slideHeight}px;"
 	>
 		<Carousel.Root
 			orientation="vertical"
@@ -144,7 +161,7 @@
 						<Carousel.ItemGroup
 							onpointerover={() => api().pause()}
 							onpointerleave={() => api().play()}
-							class="flex h-full w-full flex-col"
+							class="carousel-track flex h-full w-full min-w-0 flex-col"
 						>
 							{#each todaysPendingTasks as task, index (task.taskId)}
 								<Carousel.Item
@@ -153,7 +170,7 @@
 									style="height: {slideHeight}px; min-height: {slideHeight}px; max-height: {slideHeight}px;"
 								>
 									<div
-										class="task-card mx-auto flex h-full w-full overflow-hidden rounded-lg border border-neutral-600/20 bg-gradient-to-br shadow-sm transition-shadow duration-200 hover:shadow-md {getPriorityGradient(
+										class="task-card mx-auto flex h-full w-full min-w-0 overflow-hidden rounded-lg border border-neutral-600/20 bg-gradient-to-br shadow-sm transition-shadow duration-200 hover:shadow-md {getPriorityGradient(
 											task.taskPriority
 										)}"
 									>
@@ -164,14 +181,14 @@
 										<div class="flex h-full min-w-0 flex-col overflow-hidden p-2">
 											<!-- Task Title -->
 											<h3
-												class="mb-2 line-clamp-2 text-lg leading-tight font-bold text-gray-900 lg:text-2xl xl:text-3xl"
+												class="mb-2 line-clamp-2 shrink-0 text-lg leading-tight font-bold text-gray-900 lg:text-2xl xl:text-3xl"
 											>
 												{task.taskName}
 											</h3>
 
 											<!-- Project Badge (status indicated by colored left bar) -->
 											{#if task.projectName}
-												<div class="mb-auto flex flex-wrap gap-2 overflow-hidden">
+												<div class="mb-auto flex shrink-0 flex-wrap gap-2 overflow-hidden">
 													<span
 														class="inline-flex max-w-full min-w-0 items-center rounded-full border border-purple-200 bg-purple-100 px-3 py-1 text-xs font-semibold text-purple-800 lg:text-sm xl:text-base"
 														title={task.projectName}
@@ -236,6 +253,26 @@
 		max-width: 100%;
 		overflow: hidden;
 		box-sizing: border-box;
+	}
+
+	/*
+	 * zag-js renders the item group as `display: grid` with `gridAutoFlow: row`, which leaves the
+	 * implicit column sized to `auto` (max-content of the widest slide). The `w-full` slides then
+	 * resolve against that oversized track and spill out of the 20%-wide column, cropping the card
+	 * on the right. Pinning the implicit column to the container width keeps every slide inside.
+	 *
+	 * The row size is pinned to the slide height for the same reason: zag-js derives it from the
+	 * measured container height (`calc(100% / slidesPerPage - spacing * (n - 1) / n)`), so any clamp
+	 * on the container makes the rows shorter than the slides, the slides overflow their rows and
+	 * the 8px gap between cards disappears. `--slide-h` is set by the container above.
+	 *
+	 * `:global` is required: the class is forwarded through the Ark UI `Carousel.ItemGroup`
+	 * component, so Svelte's scoping hash is never added to the rendered element.
+	 */
+	:global(.carousel-track) {
+		--slide-item-size: var(--slide-h);
+		grid-auto-columns: minmax(0, 100%);
+		min-width: 0;
 	}
 
 	.carousel-item {
